@@ -195,8 +195,9 @@ pub fn ensure_companion_password(app: &AppHandle, state: &AppState) -> String {
         .map(|s| (s.companion_password.trim().is_empty(), s.companion_pin_configured))
         .unwrap_or((true, false));
     if empty && !configured {
-        let t = now_millis();
-        let code = format!("{:06}", (t % 1000000) ^ (t >> 7));
+        // Mã 6 số từ nguồn ngẫu nhiên mật mã (UUID v4) thay vì timestamp —
+        // timestamp XOR dễ đoán nếu dùng PIN này cho xác thực quan trọng hơn.
+        let code = format!("{:06}", uuid::Uuid::new_v4().as_u128() % 1_000_000u128);
         if let Ok(mut s) = state.settings.lock() {
             s.companion_password = code.clone();
             s.companion_pin_configured = true;

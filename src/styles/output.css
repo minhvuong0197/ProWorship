@@ -77,14 +77,6 @@ body {
   padding: 4vh 4vw;
 }
 
-.output-label {
-  font-size: 3vh;
-  opacity: 0.85;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  margin-bottom: 1.5vh;
-}
-
 .output-lyrics {
   font-size: clamp(26px, 6.2vh, 45vh);
   font-weight: 600;

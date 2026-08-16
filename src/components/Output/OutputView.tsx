@@ -549,16 +549,6 @@ export function RenderSlide({
       /\{(text|scripture|scripture_text)\}/.test(el.content || ""),
   );
 
-  // When the template renders the content itself via dynamic values, it also owns
-  // the label: hide the auto-rendered label unless an element explicitly shows it.
-  const hasLabelFrame =
-    hasContentFrame ||
-    (slide.elements ?? []).some(
-      (el) =>
-        el.kind === "text" &&
-        /\{(label|reference|scripture_reference)\}/.test(el.content || ""),
-    );
-
   return (
     <>
       {renderBg()}
@@ -595,11 +585,6 @@ export function RenderSlide({
                     : "center",
             }}
           >
-          {slide.label && !hasLabelFrame && (
-            <div className="output-label" style={fmtTextStyle(f)}>
-              {slide.label}
-            </div>
-          )}
           {!hasContentFrame && (
           <div className="output-lyrics" style={fmtTextStyle(f)}>
             <StyledText
@@ -640,12 +625,7 @@ export function RenderSlide({
                     : "center",
             }}
           >
-          {slide.label && !hasLabelFrame && (
-            <div className="output-label" style={overlayStyle}>
-              {slide.label}
-            </div>
-          )}
-            {!hasContentFrame && slide.text !== undefined && (
+          {!hasContentFrame && slide.text !== undefined && (
               <div
                 className="output-lyrics"
                 style={{

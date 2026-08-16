@@ -602,11 +602,6 @@ button.icon {
   font-size: clamp(7px, 1.6vw, 15px);
 }
 
-.slide-grid-preview .preview-label {
-  font-size: clamp(5px, 0.9vw, 10px);
-  letter-spacing: 1.5px;
-}
-
 .slide-grid-live-badge {
   position: absolute;
   top: 6px;
@@ -912,11 +907,6 @@ button.icon {
 
 .playlist-grid-thumb .preview-lyrics {
   font-size: clamp(7px, 1.6vw, 15px);
-}
-
-.playlist-grid-thumb .preview-label {
-  font-size: clamp(5px, 0.9vw, 10px);
-  letter-spacing: 1.5px;
 }
 
 .playlist-grid-footer {
@@ -1443,14 +1433,6 @@ button.icon {
   word-break: break-word;
 }
 
-.preview-label {
-  font-size: clamp(8px, 3cqh, 20px);
-  opacity: 0.85;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  margin-bottom: 2%;
-}
-
 .preview-layer {
   position: absolute;
   pointer-events: none;
@@ -1533,13 +1515,6 @@ button.icon {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
   box-sizing: border-box;
   word-break: break-word;
-}
-
-.preview-canvas .preview-label {
-  font-size: 11px;
-  opacity: 0.75;
-  margin-bottom: 4px;
-  letter-spacing: 1px;
 }
 
 .live-preview .preview-next {
@@ -5523,11 +5498,6 @@ button.sm {
 
 .presentation-grid-thumb .preview-lyrics {
   font-size: clamp(8px, 1.8vw, 16px);
-}
-
-.presentation-grid-thumb .preview-label {
-  font-size: clamp(5px, 0.9vw, 10px);
-  letter-spacing: 1.5px;
 }
 
 .presentation-grid-footer {

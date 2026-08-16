@@ -477,14 +477,6 @@ export default function PreviewSlide({
       /\{(text|scripture|scripture_text)\}/.test(el.content || ""),
   );
 
-  const hasLabelFrame =
-    hasContentFrame ||
-    (slide?.elements ?? []).some(
-      (el) =>
-        el.kind === "text" &&
-        /\{(label|reference|scripture_reference)\}/.test(el.content || ""),
-    );
-
   const renderBg = () => {
     if (slide?.background) {
       return (
@@ -563,9 +555,6 @@ export default function PreviewSlide({
                     : "center",
             }}
           >
-            {slide.label && !hasLabelFrame && (
-              <div className="preview-label">{slide.label}</div>
-            )}
             {!hasContentFrame && (
               <div className="preview-lyrics">
                 <StyledText
@@ -595,9 +584,6 @@ export default function PreviewSlide({
           }}
         >
           <PreviewFitBlock anchor={s.position}>
-            {slide.label && !hasLabelFrame && (
-              <div className="preview-label">{slide.label}</div>
-            )}
             {!hasContentFrame && slide.text !== undefined && (
               <div className="preview-lyrics">
                 <StyledText

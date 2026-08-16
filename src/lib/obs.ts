@@ -19,12 +19,46 @@ type Resolve = (data: any) => void;
 type Reject = (err: string) => void;
 type PendingReq = { resolve: Resolve; reject: Reject; quiet?: boolean };
 
-async function sha256B64(input: string): Promise<string> {
+export async function sha256B64(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
   let bin = "";
   new Uint8Array(digest).forEach((b) => (bin += String.fromCharCode(b)));
   return btoa(bin);
+}
+
+/**
+ * Mã xác thực OBS WebSocket v5:
+ * secret = sha256(password + salt) → base64, rồi sha256(secret + challenge) → base64.
+ */
+export async function obsAuthSecret(
+  password: string,
+  salt: string,
+  challenge: string,
+): Promise<string> {
+  const secret = await sha256B64(password + salt);
+  return sha256B64(secret + challenge);
+}
+
+/**
+ * Map mã đóng kết nối OBS (hoặc chuỗi reason) sang thông báo tiếng Việt.
+ * Trả về `null` nếu không khớp mã nào.
+ */
+export function describeObsClose(code: number, reason: string): string | null {
+  const r = (reason ?? "").toLowerCase();
+  if (code === 4007 || r.includes("authentication failed") || r.includes("authentication.")) {
+    return "Sai mật khẩu — không thể xác thực với OBS. Kiểm tra lại mật khẩu trong Tools → WebSocket Server Settings.";
+  }
+  if (code === 4009 || r.includes("authentication is required") || r.includes("authentication required")) {
+    return "OBS yêu cầu mật khẩu — hãy nhập mật khẩu WebSocket của OBS.";
+  }
+  if (code === 4006 || r.includes("not authenticated")) {
+    return "OBS báo chưa xác thực — vui lòng kết nối lại.";
+  }
+  if (code === 1006) {
+    return "Không thể kết nối tới OBS — kiểm tra OBS đang chạy và đã bật WebSocket server (Tools → WebSocket Server Settings).";
+  }
+  return null;
 }
 
 class ObsClient {
@@ -190,15 +224,9 @@ class ObsClient {
       this.scenes = [];
       this.currentScene = null;
       this.inputs = [];
-      const reason = (e.reason ?? "").toLowerCase();
-      if (e.code === 4007 || reason.includes("authentication failed") || reason.includes("authentication.")) {
-        this.lastError = "Sai mật khẩu — không thể xác thực với OBS. Kiểm tra lại mật khẩu trong Tools → WebSocket Server Settings.";
-      } else if (e.code === 4009 || reason.includes("authentication is required") || reason.includes("authentication required")) {
-        this.lastError = "OBS yêu cầu mật khẩu — hãy nhập mật khẩu WebSocket của OBS.";
-      } else if (e.code === 4006 || reason.includes("not authenticated")) {
-        this.lastError = "OBS báo chưa xác thực — vui lòng kết nối lại.";
-      } else if (e.code === 1006) {
-        this.lastError = "Không thể kết nối tới OBS — kiểm tra OBS đang chạy và đã bật WebSocket server (Tools → WebSocket Server Settings).";
+      const msg = describeObsClose(e.code, e.reason ?? "");
+      if (msg) {
+        this.lastError = msg;
       }
       this.notify();
     };

@@ -514,4 +514,107 @@ mod tests {
         c.writer_finished();
         assert!(c.touch(700));
     }
+
+    #[test]
+    fn persisted_data_round_trips_real_data() {
+        use crate::models::{AppSettings, Playlist, PlaylistEntry, Song, SongSlide};
+
+        let data = PersistedData {
+            songs: vec![Song {
+                id: "song-1".into(),
+                title: "Way Maker".into(),
+                artist: "Leeland".into(),
+                key: "A".into(),
+                ccli: "7108945".into(),
+                copyright: "2018 Integrity Music".into(),
+                slides: vec![SongSlide {
+                    id: "sl-1".into(),
+                    label: "V1".into(),
+                    text: "You are the Way Maker".into(),
+                    notes: String::new(),
+                    template_id: Some("tpl-lyric".into()),
+                    layers: Vec::new(),
+                    formatting: None,
+                    background: Some("bg.jpg".into()),
+                }],
+                arrangements: Vec::new(),
+                template_id: Some("tpl-lyric".into()),
+                created_at: 1700000000000,
+                updated_at: 1700000001000,
+            }],
+            media: Vec::new(),
+            audio: Vec::new(),
+            audio_playlists: Vec::new(),
+            playlists: vec![Playlist {
+                id: "pl-1".into(),
+                name: "Chúa Nhật".into(),
+                entries: vec![PlaylistEntry {
+                    id: "en-1".into(),
+                    kind: "song".into(),
+                    ref_id: "song-1".into(),
+                    title: "Way Maker".into(),
+                    estimated_duration_sec: Some(240),
+                    actual_start_time: None,
+                    arrangement_id: None,
+                    text: None,
+                }],
+                created_at: 1700000000000,
+                updated_at: 1700000000000,
+            }],
+            templates: Vec::new(),
+            props: Vec::new(),
+            overlays: Vec::new(),
+            settings: AppSettings {
+                ui_language: "vi".into(),
+                server_port: 8500,
+                companion_enabled: true,
+                skip_virtual_break: true,
+                ..Default::default()
+            },
+            live: LiveState::default(),
+            ccli_log: Vec::new(),
+            edit_shows: Vec::new(),
+        };
+
+        let json = serde_json::to_string_pretty(&data).unwrap();
+        let back: PersistedData = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(back.songs.len(), 1);
+        assert_eq!(back.songs[0].title, "Way Maker");
+        assert_eq!(back.songs[0].slides[0].text, "You are the Way Maker");
+        assert_eq!(back.songs[0].slides[0].background.as_deref(), Some("bg.jpg"));
+        assert_eq!(back.songs[0].template_id.as_deref(), Some("tpl-lyric"));
+        assert_eq!(back.playlists[0].name, "Chúa Nhật");
+        assert_eq!(back.playlists[0].entries[0].ref_id, "song-1");
+        assert_eq!(back.playlists[0].entries[0].estimated_duration_sec, Some(240));
+        assert_eq!(back.settings.ui_language, "vi");
+        assert_eq!(back.settings.server_port, 8500);
+        assert!(back.settings.companion_enabled);
+        assert!(back.settings.skip_virtual_break);
+    }
+
+    #[test]
+    fn persisted_data_missing_fields_fall_back_to_defaults() {
+        // Thiếu mọi field (chỉ {}): #[serde(default)] phải điền default, không panic.
+        let ok: PersistedData = serde_json::from_str("{}").unwrap();
+        assert!(ok.songs.is_empty());
+        assert!(ok.playlists.is_empty());
+        assert_eq!(ok.settings.default_transition.kind, "fade");
+        assert_eq!(ok.settings.default_transition.duration_ms, 500);
+
+        // Thiếu một phần field (chỉ có songs): phần còn lại lấy default.
+        let partial = r#"{"songs":[{"id":"s1","title":"T","artist":"A","key":"K","ccli":"","copyright":"","slides":[],"created_at":0,"updated_at":0}]}"#;
+        let ok: PersistedData = serde_json::from_str(partial).unwrap();
+        assert_eq!(ok.songs.len(), 1);
+        assert_eq!(ok.songs[0].title, "T");
+        assert!(ok.playlists.is_empty());
+        assert!(ok.media.is_empty());
+    }
+
+    #[test]
+    fn persisted_data_garbage_json_errors_without_panic() {
+        // JSON hỏng: load_from_disk xử lý Err một cách an toàn — từ_str chỉ báo lỗi.
+        assert!(serde_json::from_str::<PersistedData>("not-json-{").is_err());
+        assert!(serde_json::from_str::<PersistedData>("[1,2,3]").is_err());
+    }
 }

@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, Manager, Monitor, State, WebviewUrl, WebviewWind
 use uuid::Uuid;
 
 use crate::models::{
-    AudioPlayback, CcliLog, LiveSlide, LiveState, PlaylistEntry, Song, Template,
+    AudioPlayback, CcliLog, LiveSlide, LiveState, Playlist, PlaylistEntry, Song, Template,
 };
 use crate::state::{now_millis, save_to_disk, AppState};
 
@@ -428,67 +428,119 @@ pub fn advance_live(app: AppHandle, state: State<AppState>, dir: i32) -> Result<
         }
     }
 
-    if let (Some(song_id), Some(slide_idx)) = (&song_id, slide_idx) {
-        if let Some(song) = songs.iter().find(|s| &s.id == song_id) {
-            let order = match &guard.slide_order {
-                Some(o) if !o.is_empty() => o.clone(),
-                _ => resolve_slide_order(song, guard.arrangement_id.as_deref()),
-            };
-            let target = slide_idx as i64 + dir as i64;
-            if target >= 0 && (target as usize) < order.len() {
-                let idx = target as usize;
-                let templates = state
-                    .templates
-                    .lock()
-                    .map(|t| t.clone())
-                    .unwrap_or_default();
-                let default_tpl = default_template_in(&templates, &state.settings.lock().map(|s| s.clone()).unwrap_or_default());
-                guard.current = Some(slide_from_song(song, &order, idx, &guard, default_tpl, &templates));
-                let (nt, nl) = next_of_song(song, &order, idx);
-                guard.next_text = nt;
-                guard.next_label = nl;
-                guard.song_slide_index = Some(idx);
-                guard.song_slide_count = Some(order.len());
-                guard.slide_order = Some(order);
+    let song = song_id
+        .as_ref()
+        .and_then(|sid| songs.iter().find(|s| &s.id == sid));
+    let order = match &guard.slide_order {
+        Some(o) if !o.is_empty() => o.clone(),
+        _ => song
+            .map(|s| resolve_slide_order(s, guard.arrangement_id.as_deref()))
+            .unwrap_or_default(),
+    };
+    let playlist = playlist_id
+        .as_ref()
+        .and_then(|pid| playlists.iter().find(|p| &p.id == pid));
+
+    match plan_advance(dir, song, &order, slide_idx, playlist, entry_idx) {
+        AdvanceTarget::Slide { idx } => {
+            let templates = state
+                .templates
+                .lock()
+                .map(|t| t.clone())
+                .unwrap_or_default();
+            let default_tpl = default_template_in(
+                &templates,
+                &state.settings.lock().map(|s| s.clone()).unwrap_or_default(),
+            );
+            let Some(song) = song else {
                 let payload = guard.clone();
                 drop(guard);
-                save_to_disk(&app, state.inner());
-                let _ = app.emit("live-update", &payload);
                 return Ok(payload);
-            }
-            if let (Some(pid), Some(eidx)) = (&playlist_id, entry_idx) {
-                if let Some(playlist) = playlists.iter().find(|p| &p.id == pid) {
-                    if let Some(next_entry) = move_entry_index(playlist, eidx, dir) {
-                        apply_entry_to_live(&app, state.inner(), &mut guard, &playlist.entries[next_entry], next_entry, dir);
-                        let payload = guard.clone();
-                        drop(guard);
-                        sync_ccli_log(state.inner());
-                        save_to_disk(&app, state.inner());
-                        let _ = app.emit("live-update", &payload);
-                        return Ok(payload);
-                    }
-                }
-            }
+            };
+            guard.current = Some(slide_from_song(song, &order, idx, &guard, default_tpl, &templates));
+            let (nt, nl) = next_of_song(song, &order, idx);
+            guard.next_text = nt;
+            guard.next_label = nl;
+            guard.song_slide_index = Some(idx);
+            guard.song_slide_count = Some(order.len());
+            guard.slide_order = Some(order);
             let payload = guard.clone();
             drop(guard);
-            return Ok(payload);
+            save_to_disk(&app, state.inner());
+            let _ = app.emit("live-update", &payload);
+            Ok(payload)
+        }
+        AdvanceTarget::Entry { entry_idx } => {
+            let Some(playlist) = playlist else {
+                let payload = guard.clone();
+                drop(guard);
+                return Ok(payload);
+            };
+            apply_entry_to_live(
+                &app,
+                state.inner(),
+                &mut guard,
+                &playlist.entries[entry_idx],
+                entry_idx,
+                dir,
+            );
+            let payload = guard.clone();
+            drop(guard);
+            sync_ccli_log(state.inner());
+            save_to_disk(&app, state.inner());
+            let _ = app.emit("live-update", &payload);
+            Ok(payload)
+        }
+        AdvanceTarget::Stay => {
+            // Hết slide trong bài hoặc hết playlist → dừng, giữ nguyên trạng thái.
+            let payload = guard.clone();
+            drop(guard);
+            Ok(payload)
         }
     }
+}
 
-    if let (Some(pid), Some(eidx)) = (&playlist_id, entry_idx) {
-        if let Some(playlist) = playlists.iter().find(|p| &p.id == pid) {
-            if let Some(next_entry) = move_entry_index(playlist, eidx, dir) {
-                apply_entry_to_live(&app, state.inner(), &mut guard, &playlist.entries[next_entry], next_entry, dir);
+/// Quyết định "đi tiếp" cho `advance_live`: giữ trong bài hát nếu còn slide,
+/// nhảy sang playlist item kế nếu hết bài, dừng nếu hết playlist. Hàm thuần —
+/// được test độc lập với Tauri.
+#[derive(Debug)]
+enum AdvanceTarget {
+    Slide { idx: usize },
+    Entry { entry_idx: usize },
+    Stay,
+}
+
+fn plan_advance(
+    dir: i32,
+    song: Option<&Song>,
+    order: &[String],
+    slide_idx: Option<usize>,
+    playlist: Option<&Playlist>,
+    entry_idx: Option<usize>,
+) -> AdvanceTarget {
+    let dir = if dir > 0 { 1 } else { -1 };
+    if let (Some(_song), Some(idx)) = (song, slide_idx) {
+        if !order.is_empty() {
+            let target = idx as i64 + dir as i64;
+            if target >= 0 && (target as usize) < order.len() {
+                return AdvanceTarget::Slide { idx: target as usize };
             }
         }
+        // Hết slide trong bài → nhảy sang playlist item kế nếu có.
+        if let (Some(playlist), Some(eidx)) = (playlist, entry_idx) {
+            if let Some(next) = move_entry_index(playlist, eidx, dir) {
+                return AdvanceTarget::Entry { entry_idx: next };
+            }
+        }
+        return AdvanceTarget::Stay;
     }
-
-    let payload = guard.clone();
-    drop(guard);
-    sync_ccli_log(state.inner());
-    save_to_disk(&app, state.inner());
-    let _ = app.emit("live-update", &payload);
-    Ok(payload)
+    // Không phải bài hát (media/blank/bible…) → đi tiếp theo playlist.
+    if let (Some(playlist), Some(eidx)) = (playlist, entry_idx) {
+        if let Some(next) = move_entry_index(playlist, eidx, dir) {
+            return AdvanceTarget::Entry { entry_idx: next };
+        }
+    }
+    AdvanceTarget::Stay
 }
 
 fn move_entry_index(playlist: &crate::models::Playlist, current: usize, dir: i32) -> Option<usize> {
@@ -1208,4 +1260,162 @@ pub async fn close_template_editor_window(app: AppHandle) -> Result<(), String> 
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Playlist, PlaylistEntry, Song, SongSlide};
+
+    fn slide(id: &str) -> SongSlide {
+        SongSlide {
+            id: id.into(),
+            label: id.to_uppercase(),
+            text: format!("text-{id}"),
+            notes: String::new(),
+            template_id: None,
+            layers: Vec::new(),
+            formatting: None,
+            background: None,
+        }
+    }
+
+    fn song(id: &str, slide_ids: &[&str]) -> Song {
+        Song {
+            id: id.into(),
+            title: id.into(),
+            artist: String::new(),
+            key: String::new(),
+            ccli: String::new(),
+            copyright: String::new(),
+            slides: slide_ids.iter().map(|s| slide(s)).collect(),
+            arrangements: Vec::new(),
+            template_id: None,
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
+
+    fn entry(id: &str) -> PlaylistEntry {
+        PlaylistEntry {
+            id: id.into(),
+            kind: "song".into(),
+            ref_id: id.into(),
+            title: id.into(),
+            estimated_duration_sec: None,
+            actual_start_time: None,
+            arrangement_id: None,
+            text: None,
+        }
+    }
+
+    fn playlist(id: &str, entry_ids: &[&str]) -> Playlist {
+        Playlist {
+            id: id.into(),
+            name: id.into(),
+            entries: entry_ids.iter().map(|e| entry(e)).collect(),
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
+
+    fn order(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn forward_within_song_advances_slide() {
+        let s = song("s1", &["a", "b", "c"]);
+        let p = playlist("p1", &["s1", "s2"]);
+        match plan_advance(1, Some(&s), &order(&["a", "b", "c"]), Some(1), Some(&p), Some(0)) {
+            AdvanceTarget::Slide { idx } => assert_eq!(idx, 2),
+            other => panic!("expected Slide, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn backward_within_song_advances_slide() {
+        let s = song("s1", &["a", "b", "c"]);
+        let p = playlist("p1", &["s1", "s2"]);
+        match plan_advance(-1, Some(&s), &order(&["a", "b", "c"]), Some(1), Some(&p), Some(0)) {
+            AdvanceTarget::Slide { idx } => assert_eq!(idx, 0),
+            other => panic!("expected Slide, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forward_at_song_end_jumps_to_next_playlist_entry() {
+        let s = song("s1", &["a", "b", "c"]);
+        let p = playlist("p1", &["s1", "s2"]);
+        match plan_advance(1, Some(&s), &order(&["a", "b", "c"]), Some(2), Some(&p), Some(0)) {
+            AdvanceTarget::Entry { entry_idx } => assert_eq!(entry_idx, 1),
+            other => panic!("expected Entry, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn backward_at_song_start_jumps_to_previous_playlist_entry() {
+        let s = song("s1", &["a", "b"]);
+        let p = playlist("p1", &["s0", "s1"]);
+        match plan_advance(-1, Some(&s), &order(&["a", "b"]), Some(0), Some(&p), Some(1)) {
+            AdvanceTarget::Entry { entry_idx } => assert_eq!(entry_idx, 0),
+            other => panic!("expected Entry, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn forward_at_last_slide_of_last_entry_stays() {
+        let s = song("s2", &["a", "b"]);
+        let p = playlist("p1", &["s1", "s2"]);
+        match plan_advance(1, Some(&s), &order(&["a", "b"]), Some(1), Some(&p), Some(1)) {
+            AdvanceTarget::Stay => {}
+            other => panic!("expected Stay, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn backward_at_first_slide_of_first_entry_stays() {
+        let s = song("s1", &["a", "b"]);
+        let p = playlist("p1", &["s1", "s2"]);
+        match plan_advance(-1, Some(&s), &order(&["a", "b"]), Some(0), Some(&p), Some(0)) {
+            AdvanceTarget::Stay => {}
+            other => panic!("expected Stay, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn non_song_entry_advances_to_next_playlist_entry() {
+        let p = playlist("p1", &["media1", "song1"]);
+        match plan_advance(1, None, &[], None, Some(&p), Some(0)) {
+            AdvanceTarget::Entry { entry_idx } => assert_eq!(entry_idx, 1),
+            other => panic!("expected Entry, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn non_song_last_entry_stays() {
+        let p = playlist("p1", &["media1"]);
+        match plan_advance(1, None, &[], None, Some(&p), Some(0)) {
+            AdvanceTarget::Stay => {}
+            other => panic!("expected Stay, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn no_playlist_at_all_stays() {
+        match plan_advance(1, None, &[], None, None, None) {
+            AdvanceTarget::Stay => {}
+            other => panic!("expected Stay, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn empty_order_skips_slide_and_tries_entry() {
+        let s = song("s1", &[]);
+        let p = playlist("p1", &["s1", "s2"]);
+        match plan_advance(1, Some(&s), &[], Some(0), Some(&p), Some(0)) {
+            AdvanceTarget::Entry { entry_idx } => assert_eq!(entry_idx, 1),
+            other => panic!("expected Entry, got {other:?}"),
+        }
+    }
 }

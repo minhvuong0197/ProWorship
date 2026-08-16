@@ -22,6 +22,11 @@ trên màn hình bạn chọn (ví dụ màn hình projector nối ngoài).
 npm run tauri build
 ```
 
+> **NDI DLL**: `Processing.NDI.Lib.x64.dll` bị loại khỏi git (license NDI).
+> Nếu clone repo trên máy khác, đặt file DLL vào `src-tauri/resources/`
+> trước khi `npm run tauri build` — nếu thiếu, build sẽ lỗi và tính năng NDI
+> output không chạy (phần video/NDI probe sẽ báo lỗi tạo sender).
+
 ## Kiến trúc
 
 ```

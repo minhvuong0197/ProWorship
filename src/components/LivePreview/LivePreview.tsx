@@ -143,7 +143,7 @@ export default function LivePreview() {
       </div>
       <div className="preview-canvas" ref={canvasBoxRef}>
         {current ? (
-          <PreviewSlide slide={current} playing={live?.media_playing} chroma={chroma} />
+          <PreviewSlide slide={current} playing={live?.media_playing} chroma={chroma} thumbnail />
         ) : (
           <span style={{ color: "#555" }}>{t("preview.none")}</span>
         )}

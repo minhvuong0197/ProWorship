@@ -156,7 +156,7 @@ export default function Presentation() {
                   {slide?.label ? (
                     <span className="presentation-grid-tag">{slide.label}</span>
                   ) : null}
-                  <PreviewSlide slide={slide} />
+                  <PreviewSlide slide={slide} thumbnail />
                   <span
                     className="presentation-grid-strip"
                     style={{ background: sectionColor(slide) }}

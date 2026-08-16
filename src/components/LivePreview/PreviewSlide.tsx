@@ -460,10 +460,13 @@ export default function PreviewSlide({
   slide,
   playing,
   chroma,
+  thumbnail,
 }: {
   slide: LiveSlide | null | undefined;
   playing?: boolean;
   chroma?: boolean;
+  /** Chế độ thumbnail (lưới tab Shows): nền media tắt → nền caro xám đen như ProPresenter. */
+  thumbnail?: boolean;
 }) {
   const s: Partial<LiveSlide> = slide ?? {};
   const bgFilter = s.bg_filter || undefined;
@@ -489,6 +492,11 @@ export default function PreviewSlide({
           <PreviewMedia path={slide.background} mode="bg" chroma={chroma} />
         </div>
       );
+    }
+    if (thumbnail) {
+      // Không có media nền: hiển thị ô caro xám đen như ProPresenter
+      // thay vì màu nền (thường là trắng) của template.
+      return <div className="preview-checkerboard" />;
     }
     if (slide?.bg_color && slide.bg_color !== "#000000") {
       return (

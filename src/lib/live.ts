@@ -177,6 +177,47 @@ export function resolveBibleStyle(
   };
 }
 
+export interface BiblePresentOpts {
+  version: string;
+  versionName: string;
+  abbrev: string;
+  name: string;
+  chapter: number;
+  verseStart: number;
+  verseEnd: number;
+  text: string;
+  templateId?: string | null;
+}
+
+export function presentBibleLive(
+  live: LiveState | null,
+  settings: AppSettings | null,
+  templates: Template[],
+  o: BiblePresentOpts,
+): LiveState {
+  const base = live ?? defaultLive(settings);
+  const reference = `${o.name} ${o.chapter}:${o.verseStart}${
+    o.verseStart !== o.verseEnd ? `-${o.verseEnd}` : ""
+  }`;
+  return {
+    ...base,
+    current: {
+      kind: "song",
+      title: reference,
+      label: reference,
+      text: o.text,
+      background: base.background ?? undefined,
+      ...resolveBibleStyle(settings, templates, o.templateId),
+      bible_ref: `${o.abbrev}|${o.chapter}|${o.verseStart}|${o.verseEnd}|${o.name}|${o.versionName}`,
+    },
+    next_text: null,
+    next_label: null,
+    playlist_id: null,
+    playlist_entry_index: null,
+    bible_version: o.version,
+  };
+}
+
 export function resolveArrangementOrder(
   song: Song | null,
   arrangementId: string | null | undefined,

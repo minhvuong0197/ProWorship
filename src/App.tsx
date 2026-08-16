@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useAppStore } from "./store/useAppStore";
 import { obsClient } from "./lib/obs";
 import Toolbar from "./components/Toolbar/Toolbar";
-import Sidebar from "./components/Sidebar/Sidebar";
+import ModeBar from "./components/ModeBar/ModeBar";
+import LibraryPanel from "./components/Library/LibraryPanel";
 import SongEditor from "./components/SongEditor/SongEditor";
 import Presentation from "./components/Presentation/Presentation";
 import EditPanel from "./components/Edit/EditPanel";
@@ -19,9 +20,35 @@ import OverlaysPanel from "./components/OverlaysPanel";
 import FunctionsPanel from "./components/FunctionsPanel";
 import PropsPanel from "./components/PropsPanel";
 import ShortcutsModal from "./components/ShortcutsModal";
-import { TABS_ORDER } from "./lib/shortcuts";
+import Icon from "./components/Icon/Icon";
+import { MODE_ORDER } from "./lib/nav";
+import { useT } from "./lib/i18n";
 import { editBusy } from "./lib/editBusy";
-import type { Tab } from "./components/Sidebar/Sidebar";
+import type { CenterView, LibraryMode, ToolMode, EditorKind } from "./lib/nav";
+import type { ReactNode } from "react";
+
+const LIBRARY_ONLY = ["songs", "bible", "media", "audio"] as const;
+
+function PanelHost({
+  onBack,
+  children,
+}: {
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  const t = useT();
+  return (
+    <div className="center-host">
+      <div className="center-host-bar">
+        <button className="center-back" onClick={onBack}>
+          <Icon name="chevronLeft" size={13} />
+          {t("library.backToShow")}
+        </button>
+      </div>
+      <div className="center-host-body">{children}</div>
+    </div>
+  );
+}
 
 export default function App() {
   const loadAll = useAppStore((s) => s.loadAll);
@@ -33,7 +60,8 @@ export default function App() {
   const setOutputLocked = useAppStore((s) => s.setOutputLocked);
   const refreshOutput = useAppStore((s) => s.refreshOutput);
   const setAudioState = useAppStore((s) => s.setAudioState);
-  const [tab, setTab] = useState<Tab>("presentation");
+  const [libraryMode, setLibraryMode] = useState<LibraryMode>("songs");
+  const [centerView, setCenterView] = useState<CenterView>({ kind: "show" });
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
@@ -58,6 +86,25 @@ export default function App() {
       obsClient.switchScene(scene).catch(() => {});
     }
   }, [live?.current?.kind, settings, obsClient.status]);
+
+  const onLibraryMode = (m: LibraryMode) => {
+    setLibraryMode(m);
+    if (centerView.kind !== "show") setCenterView({ kind: "show" });
+  };
+
+  const onToolMode = (m: ToolMode) => {
+    setCenterView((prev) =>
+      prev.kind === "tool" && prev.mode === m
+        ? { kind: "show" }
+        : { kind: "tool", mode: m },
+    );
+  };
+
+  const onOpenEditor = (editor: EditorKind, songId?: string | null) => {
+    setCenterView({ kind: "editor", editor, songId });
+  };
+
+  const onShow = () => setCenterView({ kind: "show" });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -103,10 +150,12 @@ export default function App() {
             if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
             e.preventDefault();
             {
+              const isBible =
+                centerView.kind === "editor" && centerView.editor === "bible";
               const main = document.querySelector("main.app-main");
               if (main) {
                 const range = document.createRange();
-                if (tab === "bible") {
+                if (isBible) {
                   const parts = main.querySelectorAll<HTMLElement>(".bible-fixed, .bible-scroll");
                   if (parts.length && parts[0].firstChild && parts[parts.length - 1].lastChild) {
                     range.setStart(parts[0], 0);
@@ -138,31 +187,44 @@ export default function App() {
         return;
       }
 
+      const currentMode = (): LibraryMode | ToolMode => {
+        if (centerView.kind === "tool") return centerView.mode;
+        return libraryMode;
+      };
+
+      const applyMode = (m: LibraryMode | ToolMode) => {
+        if ((LIBRARY_ONLY as readonly string[]).includes(m)) {
+          onLibraryMode(m as LibraryMode);
+        } else {
+          onToolMode(m as ToolMode);
+        }
+      };
+
       if (e.ctrlKey && e.key === "Tab") {
         e.preventDefault();
         const dir = e.shiftKey ? -1 : 1;
-        const idx = TABS_ORDER.indexOf(tab);
-        const next = TABS_ORDER[(idx + dir + TABS_ORDER.length) % TABS_ORDER.length];
-        setTab(next);
+        const idx = MODE_ORDER.indexOf(currentMode());
+        const next = MODE_ORDER[(idx + dir + MODE_ORDER.length) % MODE_ORDER.length];
+        applyMode(next);
         return;
       }
 
       if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault();
-        const next = TABS_ORDER[Number(e.key) - 1];
-        if (next) setTab(next);
+        const next = MODE_ORDER[Number(e.key) - 1];
+        if (next) applyMode(next);
         return;
       }
       if (e.ctrlKey && e.key === "0") {
         e.preventDefault();
-        const next = TABS_ORDER[9];
-        if (next) setTab(next);
+        const next = MODE_ORDER[9];
+        if (next) applyMode(next);
         return;
       }
       if (e.ctrlKey && e.code === "Minus") {
         e.preventDefault();
-        const next = TABS_ORDER[9];
-        if (next) setTab(next);
+        const next = MODE_ORDER[9];
+        if (next) applyMode(next);
         return;
       }
 
@@ -190,25 +252,83 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [advanceLive, clearLive, tab, toggleOutput, setOutputLocked, refreshOutput, setAudioState, live?.output_locked, live?.audio?.volume]);
+  }, [
+    advanceLive,
+    clearLive,
+    libraryMode,
+    centerView,
+    toggleOutput,
+    setOutputLocked,
+    refreshOutput,
+    setAudioState,
+    live?.output_locked,
+    live?.audio?.volume,
+  ]);
 
   return (
     <div className="app-shell">
       <Toolbar onOpenShortcuts={() => setShowShortcuts(true)} />
+      <ModeBar
+        libraryMode={libraryMode}
+        centerView={centerView}
+        onLibraryMode={onLibraryMode}
+        onToolMode={onToolMode}
+        onShow={onShow}
+      />
       <div className="app-body">
-        <Sidebar tab={tab} onTabChange={setTab} />
+        <LibraryPanel mode={libraryMode} onOpenEditor={onOpenEditor} />
         <main className="app-main">
-          {tab === "presentation" && <Presentation />}
-          {tab === "songs" && <SongEditor />}
-          {tab === "edit" && <EditPanel />}
-          {tab === "media" && <MediaLibrary />}
-          {tab === "audio" && <AudioLibrary />}
-          {tab === "bible" && <BiblePanel />}
-          {tab === "playlists" && <PlaylistPanel />}
-          {tab === "overlays" && <OverlaysPanel />}
-          {tab === "functions" && <FunctionsPanel />}
-          {tab === "props" && <PropsPanel />}
-          {tab === "obs" && <ObsController />}
+          {centerView.kind === "show" && <Presentation />}
+          {centerView.kind === "tool" && centerView.mode === "edit" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <EditPanel />
+            </PanelHost>
+          )}
+          {centerView.kind === "tool" && centerView.mode === "overlays" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <OverlaysPanel />
+            </PanelHost>
+          )}
+          {centerView.kind === "tool" && centerView.mode === "functions" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <FunctionsPanel />
+            </PanelHost>
+          )}
+          {centerView.kind === "tool" && centerView.mode === "props" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <PropsPanel />
+            </PanelHost>
+          )}
+          {centerView.kind === "tool" && centerView.mode === "obs" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <ObsController />
+            </PanelHost>
+          )}
+          {centerView.kind === "tool" && centerView.mode === "projects" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <PlaylistPanel />
+            </PanelHost>
+          )}
+          {centerView.kind === "editor" && centerView.editor === "songs" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <SongEditor initialSongId={centerView.songId ?? null} hideList />
+            </PanelHost>
+          )}
+          {centerView.kind === "editor" && centerView.editor === "bible" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <BiblePanel />
+            </PanelHost>
+          )}
+          {centerView.kind === "editor" && centerView.editor === "media" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <MediaLibrary />
+            </PanelHost>
+          )}
+          {centerView.kind === "editor" && centerView.editor === "audio" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <AudioLibrary />
+            </PanelHost>
+          )}
         </main>
         <aside className="app-right">
           <LivePreview />

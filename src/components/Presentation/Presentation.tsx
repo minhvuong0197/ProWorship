@@ -1,11 +1,17 @@
 import { useCallback, useState } from "react";
-import type { CSSProperties, WheelEvent } from "react";
+import type { CSSProperties, DragEvent, WheelEvent } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../lib/i18n";
 import Icon from "../Icon/Icon";
 import PreviewSlide from "../LivePreview/PreviewSlide";
 import type { LiveSlide } from "../../lib/types";
-import { defaultLive, resolveArrangementOrder, songSlideLive } from "../../lib/live";
+import {
+  defaultLive,
+  presentBibleLive,
+  resolveArrangementOrder,
+  songSlideLive,
+} from "../../lib/live";
+import { DRAG_BIBLE, DRAG_MEDIA, DRAG_SONG } from "../../lib/nav";
 
 function isVideo(path: string | undefined): boolean {
   return /\.(mp4|webm|mov|mkv|avi|m4v|wmv)$/i.test(path ?? "");
@@ -37,9 +43,11 @@ export default function Presentation() {
   const settings = useAppStore((s) => s.settings);
   const templates = useAppStore((s) => s.templates);
   const gotoSlide = useAppStore((s) => s.gotoSlide);
+  const goLive = useAppStore((s) => s.goLive);
 
   const [chroma, setChroma] = useState(false);
   const [zoom, setZoom] = useState(0.5);
+  const [dragOver, setDragOver] = useState(false);
   const cols = Math.max(1, Math.min(8, Math.round(2 / zoom)));
 
   const current = live?.current ?? null;
@@ -77,6 +85,52 @@ export default function Presentation() {
 
   const setZoomTo = (z: number) =>
     setZoom(Math.min(2, Math.max(0.25, Math.round(z * 100) / 100)));
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const songRaw = e.dataTransfer.getData(DRAG_SONG);
+    if (songRaw) {
+      try {
+        const { songId } = JSON.parse(songRaw) as { songId: string };
+        const song = songs.find((s) => s.id === songId);
+        if (song) {
+          goLive(songSlideLive(song, 0, song.title, base, settings, templates));
+        }
+      } catch {
+        /* ignore malformed payload */
+      }
+      return;
+    }
+    const bibleRaw = e.dataTransfer.getData(DRAG_BIBLE);
+    if (bibleRaw) {
+      try {
+        goLive(presentBibleLive(live, settings, templates, JSON.parse(bibleRaw)));
+      } catch {
+        /* ignore malformed payload */
+      }
+      return;
+    }
+    const mediaPath = e.dataTransfer.getData(DRAG_MEDIA);
+    if (mediaPath) {
+      const mediaBase = live ?? defaultLive(settings);
+      goLive({
+        ...mediaBase,
+        current: {
+          kind: "media",
+          title: mediaPath,
+          media_path: mediaPath,
+          background: mediaPath,
+        },
+        next_text: null,
+        next_label: null,
+        background: mediaPath,
+        media_playing: true,
+        playlist_id: null,
+        playlist_entry_index: null,
+      });
+    }
+  };
 
   return (
     <div className="presentation">
@@ -129,8 +183,19 @@ export default function Presentation() {
       </div>
 
       <div
-        className="presentation-grid-wrap"
+        className={`presentation-grid-wrap${dragOver ? " drag-over" : ""}`}
         onWheel={handleGridWheel}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+          if (!dragOver) setDragOver(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+            setDragOver(false);
+          }
+        }}
+        onDrop={handleDrop}
       >
         {slides.length === 0 ? (
           <div className="presentation-empty">

@@ -106,7 +106,13 @@ function LazyPreview({ slide }: { slide: import("../../lib/types").LiveSlide | n
   );
 }
 
-export default function SongEditor() {
+export default function SongEditor({
+  initialSongId,
+  hideList,
+}: {
+  initialSongId?: string | null;
+  hideList?: boolean;
+}) {
   const t = useT();
   const songs = useAppStore((s) => s.songs);
   const media = useAppStore((s) => s.media);
@@ -121,7 +127,9 @@ export default function SongEditor() {
     (tp) => !tp.category || tp.category === "lyric" || tp.category === "other",
   );
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSongId ?? null,
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [work, setWork] = useState<Song | null>(null);
@@ -1804,6 +1812,7 @@ export default function SongEditor() {
 
   return (
     <div className="panel" style={{ flexDirection: "row" }}>
+      {!hideList && (
       <div className="list-pane">
         <div className="panel-head">
           <h2>{t("songs.title")}</h2>
@@ -1858,8 +1867,26 @@ export default function SongEditor() {
           ))}
         </div>
       </div>
+      )}
 
       <div className="panel" style={{ flex: 1, minWidth: 0 }}>
+        {hideList && (
+          <div className="panel-head">
+            <h2>{t("songs.title")}</h2>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => setShowImportExport(true)}
+                title={t("toolbar.ccliReport") + " / Nhập & Xuất đa định dạng"}
+              >
+                Nhập/Xuất
+              </button>
+              <button className="primary" onClick={createSong}>
+                <Icon name="plus" className="btn-ic" />
+                {t("songs.add")}
+              </button>
+            </div>
+          </div>
+        )}
         {!work ? (
           <div className="empty-hint">{t("songs.selectHint")}</div>
         ) : (

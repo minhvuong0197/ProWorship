@@ -92,6 +92,23 @@ impl SaveCoalescer {
     }
 }
 
+/// State trung tâm chia thành nhiều `Mutex` riêng cho từng tập dữ liệu.
+///
+/// # Quy ước lock ordering (bắt buộc giữ khi thêm code)
+///
+/// 1. **Không bao giờ giữ 2 `Mutex` của `AppState` cùng lúc** — lấy dữ liệu
+///    bằng 1 câu lệnh clone-and-drop:
+///    `state.songs.lock().map(|g| g.clone()).unwrap_or_default()`
+///    (guard tự nhả cuối câu lệnh).
+/// 2. Ngoại lệ duy nhất: lock `live` có thể giữ xuyên suốt thân hàm, và **phải
+///    được lock ĐẦU TIÊN** — không hàm nào được phép lấy `live` trong khi đang
+///    giữ một lock khác của `AppState`. (Rà soát: các command trong
+///    `commands/output.rs` đều đúng quy tắc này; `load_from_disk` /
+///    `write_to_disk` lock từng cái một.)
+/// 3. `save` và `windows` là leaf lock — chỉ lock một mình, không bao giờ nằm
+///    trong chuỗi giữ chồng với lock khác.
+///
+/// Hệ quả: không tồn tại vòng chờ (cycle) → không deadlock.
 pub struct AppState {
     pub windows: Mutex<WindowState>,
     pub songs: Mutex<Vec<Song>>,

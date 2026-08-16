@@ -122,7 +122,7 @@ export default function AudioPlayerPanel() {
         />
         <button
           className="icon"
-          title="Audio Mastering & Ducking"
+          title={t("audio.mastering.title")}
           onClick={() => setShowMastering(true)}
         >
           <Icon name="gear" size={16} />

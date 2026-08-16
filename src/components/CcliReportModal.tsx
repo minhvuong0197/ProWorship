@@ -20,7 +20,7 @@ export default function CcliReportModal({ onClose }: { onClose: () => void }) {
   }, [refreshCcliLog]);
 
   const exportCsv = async () => {
-    const header = ["Time", "Song", "CCLI"];
+    const header = [t("ccli.date"), t("ccli.song"), t("ccli.number")];
     const rows = ccliLog.map((l) => [
       fmtTime(l.used_at),
       `"${l.song_title.replaceAll('"', '""')}"`,

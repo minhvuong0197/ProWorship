@@ -13,30 +13,30 @@ import { clampReferenceRect, REF_TOKEN_RE, useAutoRepositionRef } from "../../li
 
 const win = getCurrentWebviewWindow();
 
-const SONG_TOKENS: { token: string; hint: string }[] = [
-  { token: "text", hint: "Lyrics text of the slide" },
-  { token: "title", hint: "Song title" },
-  { token: "label", hint: "Slide label (Verse 1, Chorus...)" },
-  { token: "date", hint: "Current date" },
-  { token: "time", hint: "Current time (HH:MM)" },
-  { token: "day", hint: "Current weekday" },
-  { token: "month", hint: "Current month" },
-  { token: "year", hint: "Current year" },
+const SONG_TOKENS: { token: string; hintKey: string }[] = [
+  { token: "text", hintKey: "templates.token_text" },
+  { token: "title", hintKey: "templates.token_title" },
+  { token: "label", hintKey: "templates.token_label" },
+  { token: "date", hintKey: "templates.token_date" },
+  { token: "time", hintKey: "templates.token_time" },
+  { token: "day", hintKey: "templates.token_day" },
+  { token: "month", hintKey: "templates.token_month" },
+  { token: "year", hintKey: "templates.token_year" },
 ];
 
-const BIBLE_TOKENS: { token: string; hint: string }[] = [
-  { token: "scripture_text", hint: "Bible verse text" },
-  { token: "scripture_reference", hint: "Reference (book, chapter, verses)" },
-  { token: "scripture_name", hint: "Bible version name" },
-  { token: "scripture_book", hint: "Book name" },
-  { token: "scripture_chapter", hint: "Chapter number" },
-  { token: "scripture_verse", hint: "Starting verse" },
-  { token: "scripture_verses", hint: "Verse range (e.g. 1-4)" },
-  { token: "label", hint: "Slide label" },
-  { token: "title", hint: "Slide title" },
-  { token: "date", hint: "Current date" },
-  { token: "time", hint: "Current time (HH:MM)" },
-  { token: "day", hint: "Current weekday" },
+const BIBLE_TOKENS: { token: string; hintKey: string }[] = [
+  { token: "scripture_text", hintKey: "templates.token_scripture_text" },
+  { token: "scripture_reference", hintKey: "templates.token_scripture_reference" },
+  { token: "scripture_name", hintKey: "templates.token_scripture_name" },
+  { token: "scripture_book", hintKey: "templates.token_scripture_book" },
+  { token: "scripture_chapter", hintKey: "templates.token_scripture_chapter" },
+  { token: "scripture_verse", hintKey: "templates.token_scripture_verse" },
+  { token: "scripture_verses", hintKey: "templates.token_scripture_verses" },
+  { token: "label", hintKey: "templates.token_label" },
+  { token: "title", hintKey: "templates.token_title" },
+  { token: "date", hintKey: "templates.token_date" },
+  { token: "time", hintKey: "templates.token_time" },
+  { token: "day", hintKey: "templates.token_day" },
 ];
 
 interface Props {
@@ -306,7 +306,7 @@ export default function TemplateEditorWindow({ initialTemplateId, onClose }: Pro
                 <span className="cat">{tp.category || "other"}</span>
               </div>
             ))}
-            {templates.length === 0 && <div className="empty-hint">Chưa có template</div>}
+            {templates.length === 0 && <div className="empty-hint">{t("templates.empty")}</div>}
           </div>
           <div className="tpl-win-editor">
             <div className="empty-hint">{t("templates.selectHint")}</div>
@@ -646,7 +646,7 @@ function ElementProps(props: {
               <button
                 key={tk.token}
                 className="tpl-token"
-                title={tk.hint}
+                title={t(tk.hintKey)}
                 onClick={() =>
                   onPatch({
                     content: el.content
@@ -663,11 +663,11 @@ function ElementProps(props: {
       )}
       {isTextual(el.kind) && (
         <div className="field-row wrap">
-          <label className="check-row" title="Bold">
+          <label className="check-row" title={t("templates.bold")}>
             <input type="checkbox" checked={el.bold} onChange={(e) => onPatch({ bold: e.target.checked })} />
             B
           </label>
-          <label className="check-row" title="Italic">
+          <label className="check-row" title={t("templates.italic")}>
             <input type="checkbox" checked={el.italic} onChange={(e) => onPatch({ italic: e.target.checked })} />
             I
           </label>

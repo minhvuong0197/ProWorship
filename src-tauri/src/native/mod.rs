@@ -1,6 +1,7 @@
 //! Native C++ core (Video Engine + NDI Output) bridged via `cxx`.
 
 pub mod bridge;
+pub mod ndi;
 pub mod player;
 
 #[cfg(test)]

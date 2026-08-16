@@ -1,6 +1,8 @@
 use serde::Serialize;
+use tauri::State;
 
 use crate::native::bridge;
+use crate::state::AppState;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +40,36 @@ pub fn native_ndi_probe(name: String) -> Result<(), String> {
     }
     let _ = sender;
     Ok(())
+}
+
+/// Bật NDI output: tạo sender và giữ trong state cho tới khi `ndi_output_stop`.
+#[tauri::command]
+pub fn ndi_output_start(state: State<AppState>, name: String) -> Result<(), String> {
+    state.ndi.start(&name)
+}
+
+/// Đẩy 1 frame RGBA lên NDI output đang bật. Trả về false nếu SDK từ chối frame.
+#[tauri::command]
+pub fn ndi_output_send_frame(
+    state: State<AppState>,
+    width: i32,
+    height: i32,
+    rgba: Vec<u8>,
+) -> Result<bool, String> {
+    state.ndi.send_frame(&rgba, width, height)
+}
+
+/// Tắt NDI output.
+#[tauri::command]
+pub fn ndi_output_stop(state: State<AppState>) -> Result<(), String> {
+    state.ndi.stop();
+    Ok(())
+}
+
+/// Kiểm tra NDI output đang bật/tắt.
+#[tauri::command]
+pub fn ndi_output_active(state: State<AppState>) -> Result<bool, String> {
+    Ok(state.ndi.is_active())
 }
 
 /// TEMP: log the WebView2/WebGPU capability report collected by the frontend

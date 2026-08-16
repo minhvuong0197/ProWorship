@@ -3,6 +3,29 @@
 //! Split into two `unsafe extern "C++"` blocks so a compile error in one
 //! module does not block the other. Only unsafe blocks mandated by `cxx`
 //! live here; no hand-written `extern "C"` ABI shims.
+//!
+//! # Data flow
+//!
+//! ## Video Engine (decoding)
+//! ```text
+//! Rust (commands/native.rs, native/player.rs)
+//!   └─ bridge::new_video_decoder / decode_frame / fill_frame / ...   (cxx)
+//!        └─ cpp/src/video_engine.cpp  VideoDecoder  (FFmpeg)
+//! ```
+//! The decoder is owned by `PlayerManager`; the frontend pulls frames over the
+//! `frames://` scheme (`native_player.pull()`).
+//!
+//! ## NDI Output (network send)
+//! ```text
+//! Rust command (ndi_output_start / ndi_output_send_frame / ndi_output_stop)
+//!   └─ native/ndi.rs  NdiOutput  (owns `UniquePtr<NdiSender>` in AppState)
+//!        └─ bridge::new_ndi_sender / send_frame                        (cxx)
+//!             └─ cpp/src/ndi_output.cpp  NdiSender::send_frame
+//!                  └─ NDI SDK  NDIlib_send_send_video_v2  (RGBA, 16:9)
+//!                       └─ receivers on the LAN
+//! ```
+//! `NdiOutput` is a thin owner: it creates one sender per `start()`, accepts
+//! RGBA frames via `send_frame()`, and destroys the sender on `stop()`.
 
 #[cxx::bridge(namespace = "pwcp")]
 mod ffi {
@@ -18,11 +41,14 @@ mod ffi {
         /// Returns an empty vector when the stream is exhausted.
         fn decode_frame(self: Pin<&mut VideoDecoder>) -> Vec<u8>;
         /// Decode the next frame and return it as a JPEG-encoded byte blob.
-        /// Returns an empty vector when the stream is exhausted.
+        /// Returns an empty vector when the stream is exhausted. Exercised by
+        /// the native frame-timing tests.
+        #[allow(dead_code)]
         fn decode_frame_jpeg(self: Pin<&mut VideoDecoder>, quality: u8) -> Vec<u8>;
         /// Decode the next frame into a pre-sized RGBA buffer (avoids a
         /// per-pixel copy). Returns false when the stream is exhausted or the
-        /// buffer is too small.
+        /// buffer is too small. Exercised by the native frame-timing tests.
+        #[allow(dead_code)]
         fn fill_frame(self: Pin<&mut VideoDecoder>, out: &mut Vec<u8>) -> bool;
         /// Decode the next frame, JPEG-encode it into `out`, and return the
         /// number of bytes written, or -1 on failure/EOF. `out` must be
@@ -63,6 +89,7 @@ mod ffi {
         /// Seek to a given time (seconds); returns success.
         fn seek(self: Pin<&mut VideoDecoder>, seconds: f64) -> bool;
         /// Get the current playback position in seconds.
+        #[allow(dead_code)]
         fn position(self: &VideoDecoder) -> f64;
         /// Total video duration in seconds, or 0 if not available.
         fn duration(self: &VideoDecoder) -> f64;

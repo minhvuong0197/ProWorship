@@ -107,6 +107,7 @@ pub struct AppState {
     pub ccli_log: Mutex<Vec<CcliLog>>,
     pub edit_shows: Mutex<Vec<EditShow>>,
     pub native_player: PlayerManager,
+    pub ndi: crate::native::ndi::NdiOutput,
     pub save: Mutex<SaveCoalescer>,
 }
 
@@ -127,6 +128,7 @@ impl AppState {
             ccli_log: Mutex::new(Vec::new()),
             edit_shows: Mutex::new(Vec::new()),
             native_player: PlayerManager::default(),
+            ndi: crate::native::ndi::NdiOutput::default(),
             save: Mutex::new(SaveCoalescer::new()),
         }
     }

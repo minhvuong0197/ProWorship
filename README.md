@@ -22,35 +22,39 @@ trên màn hình bạn chọn (ví dụ màn hình projector nối ngoài).
 npm run tauri build
 ```
 
-> Trước khi build release, tạo icon bằng `npm run tauri icon path/to/logo-1024.png`
-> (hiện tại `tauri.conf.json` chưa khai báo icon để tránh lỗi khi chưa có file).
-
 ## Kiến trúc
 
 ```
 src-tauri/            Rust backend (Tauri v2)
   src/
-    models/            Song, Slide, MediaItem, AudioItem, Template, Playlist, LiveState, AppSettings
+    models/            Song, Slide, MediaItem, AudioItem, Template, Playlist, LiveState, AppSettings,
+                       Prop, Overlay, BibleVerse, EditShow...
     state.rs            AppState (in-memory, Mutex) + persistence (JSON trong app data dir)
-    commands/           songs.rs, media.rs, audio.rs, playlists.rs, templates.rs, settings.rs, output.rs
+                       ghi đĩa debounce 500ms + flush khi thoát (state::SaveCoalescer)
+    commands/           songs, media, audio, playlists, templates, settings, output, props,
+                       overlays, edit, bible, native (video/NDI probe + NDI output)
+    native/             bridge.rs (cxx FFI → C++), player.rs (video player nền), ndi.rs (NDI output)
+    cpp/                video_engine.cpp (FFmpeg decode), ndi_output.cpp (NDI SDK) — core C++
+    bible.rs            Load/search Kinh Thánh, template theo version, advance selection
+    interlinear.rs      Interlinear + Strong (assets/bible/ilg/)
+    server.rs           Companion server (LAN, PIN) cho remote control
     lib.rs / main.rs     Đăng ký plugin, state, commands
 
 src/                  React frontend
   store/useAppStore.ts  Zustand store trung tâm — gọi Rust commands qua lib/api.ts
   lib/api.ts             Wrapper cho tauri invoke() + convertFileSrc cho media
   lib/live.ts            Helper go-live: resolve template style, dựng LiveState cho song slide
-  components/
-    Toolbar/              Chọn màn hình, Output/Stage windows, đếm ngược, tin nhắn Stage, Cài đặt
-    SongEditor/            CRUD bài hát + slides (notes, template), nút "Go Live"
-    MediaLibrary/          Import ảnh/video (native file dialog), go-live nền
-    AudioLibrary/          Import audio, nghe thử, phát làm nhạc nền
-    Settings/              Modal cài đặt: transition, template default, templates editor, Stage options
-    Playlist/              Chương trình thờ phượng: bài hát/media/audio/slide đen, sắp xếp, phát nhanh
-    LivePreview/            Xem trước + điều hướng slide, audio/video controls, đếm ngược (panel phải)
-    Output/OutputView.tsx   Component render fullscreen cho cửa sổ Output (projector)
-    Stage/StageView.tsx      Stage Display: lời, slide kế, ghi chú, đồng hồ, đếm ngược, tin nhắn
-  windows/output-main.tsx  Entry point riêng cho output.html (build đa entry qua Vite)
+  lib/obs.ts             OBS WebSocket v5 client (tự viết, xác thực SHA-256)
+  components/            Toolbar, SongEditor, MediaLibrary, AudioLibrary, Settings, Playlist,
+                       LivePreview, Output, Stage, BiblePanel, Edit, Props, Overlays, OBS, ...
+  windows/*-main.tsx     Entry point riêng cho từng window (multi-entry qua Vite)
 ```
+
+**Render engine**: giao diện render bằng **Tauri WebView (React/CSS)** — *không* dùng native
+render engine riêng (Skia/bgfx như bản thiết kế gốc). Phần C++ chỉ đảm nhiệm 2 việc: **giải mã
+video** (FFmpeg → frame RGBA/JPEG, phục vụ nền video/WebGPU) và **xuất NDI** (đẩy frame RGBA ra
+mạng LAN). Bản thiết kế gốc (`_design_extract.txt`) đề xuất SQLite + C++/Skia render — đó là định
+hướng tương lai, không phải trạng thái hiện tại.
 
 ### Luồng dữ liệu Live Output
 
@@ -65,9 +69,14 @@ src/                  React frontend
 ### Lưu trữ dữ liệu
 
 Toàn bộ Song/Media/Playlist được lưu dạng JSON tại thư mục app data của hệ điều hành
-(`data.json`), file media gốc được copy vào thư mục con `media/`. Đây là nền tảng đơn giản —
-có thể nâng cấp sang SQLite (`tauri-plugin-sql`) khi thư viện bài hát lớn dần mà không đổi API
-phía frontend (`lib/api.ts` giữ nguyên interface).
+(`data.json`), file media gốc được copy vào thư mục con `media/`. Mọi thay đổi được ghi qua
+`save_to_disk` **debounce ~500ms** (gộp nhiều lệnh) và **flush đồng bộ khi app đóng** — atomic
+write (`.tmp` + rename) để không hỏng file giữa chừng.
+
+> **Quyết định tạm thời.** JSON + Mutex là nền tảng đơn giản phù hợp quy mô hiện tại. Ước tính
+> **> 500–1000 bài hát** (hoặc media > vài nghìn mục, hoặc khi ghi đĩa gây giật dù đã debounce)
+> thì nên migrate sang **SQLite** (`tauri-plugin-sql`). Migration không đổi API phía frontend:
+> giữ nguyên interface `lib/api.ts`, chỉ thay phần đọc/ghi trong `commands/*.rs`.
 
 ## Đã có (Phase 1 — khung sườn)
 
@@ -137,12 +146,15 @@ phía frontend (`lib/api.ts` giữ nguyên interface).
 
 Kiến trúc đã chừa sẵn chỗ để thêm mà **không cần đập lại code hiện tại**:
 
-- **NDI / streaming output**: thêm module Rust mới trong `commands/`, gọi từ cùng `LiveState`.
+- **NDI**: đã có khung xuất NDI thực chạy (`ndi_output_start/send_frame/stop` + smoke test). Còn
+  thiếu: tự động bơm frame từ video player/output vào sender (hiện phải gọi `ndi_output_send_frame`
+  thủ công).
 - **MIDI/OSC control** (foot pedal, bàn mixer): thêm crate `midir`/`rosc`, một command mới
   `trigger_next_slide` map vào cùng luồng `advance_live`.
-- **Bible module**: model `BibleVerse` tương tự `Song`, tái dùng toàn bộ UI go-live/playlist.
-- **CCLI SongSelect import**: thêm command Rust gọi API CCLI, map kết quả vào `Song`.
-- **SQLite thay JSON**: đổi `state.rs` sang `tauri-plugin-sql`, API commands giữ nguyên chữ ký.
+- **CCLI SongSelect import**: thêm command Rust gọi API CCLI, map kết quả vào `Song` (CCLI *log*
+  local đã có).
+- **SQLite thay JSON**: đổi `state.rs` sang `tauri-plugin-sql`, API commands giữ nguyên chữ ký —
+  ngưỡng khuyến nghị: > 500–1000 bài hát (xem mục "Lưu trữ dữ liệu").
 - **Verse highlight trên Stage** (tô dòng đang hát theo từng dòng): mở rộng `LiveState` với
   `current_line` và lệnh `advance_line`.
 - **Chord notation** cho bài hát: parse `[G]`, `[Am7]` trong text slide và hiển thị hợp âm.

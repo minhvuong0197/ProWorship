@@ -1,0 +1,224 @@
+
+> pro-worshipcast@0.2.0 tauri
+> tauri dev
+
+     Running BeforeDevCommand (`npm run dev`)
+
+> pro-worshipcast@0.2.0 dev
+> vite
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m1925[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m1420[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+        Info Watching D:\ProWorshipCast\src-tauri for changes...
+[1m[93mwarning[0m[1m[97m: methods `set_looping`, `set_chroma_key`, `seek`, and `position` are never used[0m
+  [1m[96m--> [0msrc\native\bridge.rs:27:12
+   [1m[96m|[0m
+[1m[96m 7[0m [1m[96m|[0m #[cxx::bridge(namespace = "pwcp")]
+   [1m[96m|[0m [1m[96m----------------------------------[0m [1m[96mmethods in this implementation[0m
+[1m[96m...[0m
+[1m[96m27[0m [1m[96m|[0m         fn set_looping(self: Pin<&mut VideoDecoder>, enabled: bool);
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^^[0m
+[1m[96m28[0m [1m[96m|[0m         /// Enable/disable chroma key. `key` is an RGB tuple (0-255 each).
+[1m[96m29[0m [1m[96m|[0m         fn set_chroma_key(
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^^^^^[0m
+[1m[96m...[0m
+[1m[96m38[0m [1m[96m|[0m         fn seek(self: Pin<&mut VideoDecoder>, seconds: f64) -> bool;
+   [1m[96m|[0m            [1m[93m^^^^[0m
+[1m[96m39[0m [1m[96m|[0m         /// Get the current playback position in seconds.
+[1m[96m40[0m [1m[96m|[0m         fn position(self: &VideoDecoder) -> f64;
+   [1m[96m|[0m            [1m[93m^^^^^^^^[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[93mwarning[0m[1m[97m: method `send_frame` is never used[0m
+  [1m[96m--> [0msrc\native\bridge.rs:54:12
+   [1m[96m|[0m
+[1m[96m 7[0m [1m[96m|[0m #[cxx::bridge(namespace = "pwcp")]
+   [1m[96m|[0m [1m[96m----------------------------------[0m [1m[96mmethod in this implementation[0m
+[1m[96m...[0m
+[1m[96m54[0m [1m[96m|[0m         fn send_frame(self: &NdiSender, rgba: &[u8], width: i32, height: i32) -> bool;
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^[0m
+
+[1m[93mwarning[0m: `pro-worshipcast` (lib) generated 2 warnings
+[1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 0.60s
+[1m[92m     Running[0m `target\debug\pro-worshipcast.exe`
+        Info File src-tauri\src\native\mod.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m pro-worshipcast v0.2.0 (D:\ProWorshipCast\src-tauri)
+[1m[96m    Building[0m [=======================> ] 402/404: pro-wor…                                                            [1m[93mwarning[0m[1m[97m: methods `set_looping`, `set_chroma_key`, `seek`, and `position` are never used[0m
+  [1m[96m--> [0msrc\native\bridge.rs:27:12
+   [1m[96m|[0m
+[1m[96m 7[0m [1m[96m|[0m #[cxx::bridge(namespace = "pwcp")]
+   [1m[96m|[0m [1m[96m----------------------------------[0m [1m[96mmethods in this implementation[0m
+[1m[96m...[0m
+[1m[96m27[0m [1m[96m|[0m         fn set_looping(self: Pin<&mut VideoDecoder>, enabled: bool);
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^^[0m
+[1m[96m28[0m [1m[96m|[0m         /// Enable/disable chroma key. `key` is an RGB tuple (0-255 each).
+[1m[96m29[0m [1m[96m|[0m         fn set_chroma_key(
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^^^^^[0m
+[1m[96m...[0m
+[1m[96m38[0m [1m[96m|[0m         fn seek(self: Pin<&mut VideoDecoder>, seconds: f64) -> bool;
+   [1m[96m|[0m            [1m[93m^^^^[0m
+[1m[96m39[0m [1m[96m|[0m         /// Get the current playback position in seconds.
+[1m[96m40[0m [1m[96m|[0m         fn position(self: &VideoDecoder) -> f64;
+   [1m[96m|[0m            [1m[93m^^^^^^^^[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[96m    Building[0m [=======================> ] 402/404: pro-wor…                                                            [1m[93mwarning[0m[1m[97m: method `send_frame` is never used[0m
+  [1m[96m--> [0msrc\native\bridge.rs:54:12
+   [1m[96m|[0m
+[1m[96m 7[0m [1m[96m|[0m #[cxx::bridge(namespace = "pwcp")]
+   [1m[96m|[0m [1m[96m----------------------------------[0m [1m[96mmethod in this implementation[0m
+[1m[96m...[0m
+[1m[96m54[0m [1m[96m|[0m         fn send_frame(self: &NdiSender, rgba: &[u8], width: i32, height: i32) -> bool;
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^[0m
+
+[1m[96m    Building[0m [=======================> ] 402/404: pro-wor…                                                            [1m[93mwarning[0m: `pro-worshipcast` (lib) generated 2 warnings
+[1m[96m    Building[0m [=======================> ] 403/404: pro-wor…                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 39.90s
+[1m[92m     Running[0m `target\debug\pro-worshipcast.exe`
+        Info File src-tauri\build.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m pro-worshipcast v0.2.0 (D:\ProWorshipCast\src-tauri)
+[1m[96m    Building[0m [=======================> ] 400/404: pro-wor…[1m[96m    Building[0m [=======================> ] 401/404: pro-wor…[1m[96m    Building[0m [=======================> ] 402/404: pro-wor…                                                            [1m[93mwarning[0m[1m[97m: methods `set_looping`, `set_chroma_key`, `seek`, and `position` are never used[0m
+  [1m[96m--> [0msrc\native\bridge.rs:27:12
+   [1m[96m|[0m
+[1m[96m 7[0m [1m[96m|[0m #[cxx::bridge(namespace = "pwcp")]
+   [1m[96m|[0m [1m[96m----------------------------------[0m [1m[96mmethods in this implementation[0m
+[1m[96m...[0m
+[1m[96m27[0m [1m[96m|[0m         fn set_looping(self: Pin<&mut VideoDecoder>, enabled: bool);
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^^[0m
+[1m[96m28[0m [1m[96m|[0m         /// Enable/disable chroma key. `key` is an RGB tuple (0-255 each).
+[1m[96m29[0m [1m[96m|[0m         fn set_chroma_key(
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^^^^^[0m
+[1m[96m...[0m
+[1m[96m38[0m [1m[96m|[0m         fn seek(self: Pin<&mut VideoDecoder>, seconds: f64) -> bool;
+   [1m[96m|[0m            [1m[93m^^^^[0m
+[1m[96m39[0m [1m[96m|[0m         /// Get the current playback position in seconds.
+[1m[96m40[0m [1m[96m|[0m         fn position(self: &VideoDecoder) -> f64;
+   [1m[96m|[0m            [1m[93m^^^^^^^^[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[96m    Building[0m [=======================> ] 402/404: pro-wor…                                                            [1m[93mwarning[0m[1m[97m: method `send_frame` is never used[0m
+  [1m[96m--> [0msrc\native\bridge.rs:54:12
+   [1m[96m|[0m
+[1m[96m 7[0m [1m[96m|[0m #[cxx::bridge(namespace = "pwcp")]
+   [1m[96m|[0m [1m[96m----------------------------------[0m [1m[96mmethod in this implementation[0m
+[1m[96m...[0m
+[1m[96m54[0m [1m[96m|[0m         fn send_frame(self: &NdiSender, rgba: &[u8], width: i32, height: i32) -> bool;
+   [1m[96m|[0m            [1m[93m^^^^^^^^^^[0m
+
+[1m[96m    Building[0m [=======================> ] 402/404: pro-wor…                                                            [1m[93mwarning[0m: `pro-worshipcast` (lib) generated 2 warnings
+[1m[96m    Building[0m [=======================> ] 403/404: pro-wor…                                                            [1m[92m    Finished[0m `dev` profile [unoptimized + debuginfo] target(s) in 49.37s
+[1m[92m     Running[0m `target\debug\pro-worshipcast.exe`
+        Info File src-tauri\src\native\bridge.rs changed. Rebuilding application...
+     Running DevCommand (`cargo  run --no-default-features --color always --`)
+[1m[92m   Compiling[0m pro-worshipcast v0.2.0 (D:\ProWorshipCast\src-tauri)
+[1m[96m    Building[0m [=======================> ] 401/404: pro-wor…                                                            [1m[91merror[0m: failed to run custom build command for `pro-worshipcast v0.2.0 (D:\ProWorshipCast\src-tauri)`
+
+Caused by:
+  process didn't exit successfully: `D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-c56b110fc9736b05\build-script-build` (exit code: 1)
+  --- stdout
+  cargo:rerun-if-env-changed=TAURI_CONFIG
+  cargo:rustc-check-cfg=cfg(desktop)
+  cargo:rustc-cfg=desktop
+  cargo:rustc-check-cfg=cfg(mobile)
+  cargo:rerun-if-changed=D:\ProWorshipCast\src-tauri\tauri.conf.json
+  cargo:rustc-env=TAURI_ANDROID_PACKAGE_NAME_APP_NAME=app
+  cargo:rustc-env=TAURI_ANDROID_PACKAGE_NAME_PREFIX=com_proworshipcast
+  cargo:rustc-check-cfg=cfg(dev)
+  cargo:rustc-cfg=dev
+  cargo:PERMISSION_FILES_PATH=D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\app-manifest\__app__-permission-files
+  cargo:rerun-if-changed=capabilities
+  cargo:rerun-if-env-changed=REMOVE_UNUSED_COMMANDS
+  cargo:rustc-env=TAURI_ENV_TARGET_TRIPLE=x86_64-pc-windows-msvc
+  package.metadata does not exist
+  Microsoft (R) Windows (R) Resource Compiler Version 10.0.10011.16384
+  Copyright (C) Microsoft Corporation.  All rights reserved.
+
+  cargo:rustc-link-arg-bins=D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\resource.lib
+  cargo:rerun-if-changed=src/native/bridge.rs
+  cargo:CXXBRIDGE_PREFIX=pro-worshipcast
+  cargo:CXXBRIDGE_DIR0=D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\cxxbridge\include
+  cargo:CXXBRIDGE_DIR1=D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\cxxbridge\crate
+  cargo:rerun-if-env-changed=CC_FORCE_DISABLE
+  CC_FORCE_DISABLE = None
+  cargo:rerun-if-env-changed=VCINSTALLDIR
+  VCINSTALLDIR = None
+  cargo:rerun-if-env-changed=VSTEL_MSBuildProjectFullPath
+  VSTEL_MSBuildProjectFullPath = None
+  cargo:rerun-if-env-changed=VCToolsVersion
+  VCToolsVersion = None
+  cargo:rerun-if-env-changed=VSCMD_ARG_VCVARS_SPECTRE
+  VSCMD_ARG_VCVARS_SPECTRE = None
+  cargo:rerun-if-env-changed=WindowsSdkDir
+  WindowsSdkDir = None
+  cargo:rerun-if-env-changed=WindowsSDKVersion
+  WindowsSDKVersion = None
+  cargo:rerun-if-env-changed=LIB
+  LIB = None
+  PATH = Some(D:\ProWorshipCast\src-tauri\target\debug;D:\ProWorshipCast\src-tauri\target\debug\deps;C:\Users\HP\.rustup\toolchains\stable-x86_64-pc-windows-msvc\lib\rustlib\x86_64-pc-windows-msvc\lib;D:\ProWorshipCast\node_modules\.bin;D:\node_modules\.bin;C:\Program Files\nodejs\node_modules\npm\node_modules\@npmcli\run-script\lib\node-gyp-bin;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\dotnet\;C:\Program Files (x86)\Touch Portal\plugins\adb\platform-tools;C:\Program Files\Git\cmd;C:\Program Files\nodejs\;C:\Program Files\CMake\bin;C:\Users\HP\.cargo\bin;C:\Users\HP\AppData\Local\Programs\Python\Python313\Scripts\;C:\Users\HP\AppData\Local\Programs\Python\Python313\;C:\Users\HP\AppData\Local\Programs\Python\Launcher\;C:\Users\HP\AppData\Local\Microsoft\WindowsApps;C:\Users\HP\.dotnet\tools;C:\Users\HP\AppData\Local\Kingsoft\WPS Office\12.1.0.27458\clitool;C:\Users\HP\.local\bin;C:\Users\HP\AppData\Roaming\npm;C:\Users\HP\.bun\bin;C:\Users\HP\AppData\Local\Programs\Ollama;C:\Users\HP\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin;D:\ProWorshipCast\src-tauri\target\debug\build\vswhom-sys-ce816029c7436650\out)
+  cargo:rerun-if-env-changed=INCLUDE
+  INCLUDE = Some(;C:\Program Files (x86)\Windows Kits\10\\Include\10.0.26100.0\cppwinrt;C:\Program Files (x86)\Windows Kits\10\\Include\10.0.26100.0\shared;C:\Program Files (x86)\Windows Kits\10\\Include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\\Include\10.0.26100.0\um;C:\Program Files (x86)\Windows Kits\10\\Include\10.0.26100.0\winrt;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\include;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\ucrt;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\um;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\cppwinrt;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\winrt;C:\Program Files (x86)\Windows Kits\10\include\10.0.26100.0\shared;;)
+  cargo:rerun-if-env-changed=CXX_x86_64-pc-windows-msvc
+  CXX_x86_64-pc-windows-msvc = None
+  cargo:rerun-if-env-changed=CXX_x86_64_pc_windows_msvc
+  CXX_x86_64_pc_windows_msvc = None
+  cargo:rerun-if-env-changed=HOST_CXX
+  HOST_CXX = None
+  cargo:rerun-if-env-changed=CXX
+  CXX = None
+  cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+  CRATE_CC_NO_DEFAULTS = None
+  cargo:rerun-if-env-changed=CXXFLAGS
+  CXXFLAGS = None
+  cargo:rerun-if-env-changed=HOST_CXXFLAGS
+  HOST_CXXFLAGS = None
+  cargo:rerun-if-env-changed=CXXFLAGS_x86_64_pc_windows_msvc
+  CXXFLAGS_x86_64_pc_windows_msvc = None
+  cargo:rerun-if-env-changed=CXXFLAGS_x86_64-pc-windows-msvc
+  CXXFLAGS_x86_64-pc-windows-msvc = None
+  cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+  cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+  CRATE_CC_NO_DEFAULTS = None
+  cargo:rerun-if-env-changed=CXXFLAGS
+  CXXFLAGS = None
+  cargo:rerun-if-env-changed=HOST_CXXFLAGS
+  HOST_CXXFLAGS = None
+  cargo:rerun-if-env-changed=CXXFLAGS_x86_64_pc_windows_msvc
+  CXXFLAGS_x86_64_pc_windows_msvc = None
+  cargo:rerun-if-env-changed=CXXFLAGS_x86_64-pc-windows-msvc
+  CXXFLAGS_x86_64-pc-windows-msvc = None
+  cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+  cargo:rerun-if-env-changed=CRATE_CC_NO_DEFAULTS
+  CRATE_CC_NO_DEFAULTS = None
+  cargo:rerun-if-env-changed=CXXFLAGS
+  CXXFLAGS = None
+  cargo:rerun-if-env-changed=HOST_CXXFLAGS
+  HOST_CXXFLAGS = None
+  cargo:rerun-if-env-changed=CXXFLAGS_x86_64_pc_windows_msvc
+  CXXFLAGS_x86_64_pc_windows_msvc = None
+  cargo:rerun-if-env-changed=CXXFLAGS_x86_64-pc-windows-msvc
+  CXXFLAGS_x86_64-pc-windows-msvc = None
+  cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT
+  bridge.rs.cc
+  D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\cxxbridge\sources\pro-worshipcast\src\native\bridge.rs.cc(757): error C2039: 'decode_frame_jpeg': is not a member of 'pwcp::VideoDecoder'
+  D:\ProWorshipCast\src-tauri\cpp\include\core.h(20): note: see declaration of 'pwcp::VideoDecoder'
+  D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\cxxbridge\sources\pro-worshipcast\src\native\bridge.rs.cc(757): error C2065: 'decode_frame_jpeg': undeclared identifier
+
+  --- stderr
+  Final verdict: crate has binaries: true
+
+  CXX include path:
+    D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\cxxbridge\include
+    D:\ProWorshipCast\src-tauri\target\debug\build\pro-worshipcast-47c2e8896da2324e\out\cxxbridge\crate
+
+
+  error occurred in cc-rs: command did not execute successfully (status code exit code: 2): "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\14.44.35207\\bin\\HostX64\\x64\\cl.exe" "-nologo" "-MD" "-Z7" "-Brepro" "-I" "D:\\ProWorshipCast\\src-tauri\\target\\debug\\build\\pro-worshipcast-47c2e8896da2324e\\out\\cxxbridge\\include" "-I" "D:\\ProWorshipCast\\src-tauri\\target\\debug\\build\\pro-worshipcast-47c2e8896da2324e\\out\\cxxbridge\\crate" "-I" "cpp/include" "-I" "D:\\vcpkg\\installed\\x64-windows-static-md\\include" "-I" "C:\\Program Files\\NDI\\NDI 6 SDK\\Include" "-W4" "/std:c++17" "-FoD:\\ProWorshipCast\\src-tauri\\target\\debug\\build\\pro-worshipcast-47c2e8896da2324e\\out\\5613c7ad4cb5b665-bridge.rs.o" "-c" "D:\\ProWorshipCast\\src-tauri\\target\\debug\\build\\pro-worshipcast-47c2e8896da2324e\\out\\cxxbridge\\sources\\pro-worshipcast\\src\\native\\bridge.rs.cc"
+
+

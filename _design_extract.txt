@@ -1,0 +1,2472 @@
+PAGES 57
+===== PAGE 1 =====
+TÀI LIỆU THIẾT KẾ PHẦN MỀM
+WorshipCast
+Phần mềm trình chiếu Worship chuyên nghiệp
+(Tương đương tầm cỡ ProPresenter)
+Bản thiết kế tổng thể — Kiến trúc, Database, UI/UX, Rendering Engine, Module hóa
+===== PAGE 2 =====
+Mục lục
+Tổng quan dự án
+Bước 1 — Yêu cầu & Phạm vi (Requirements)
+Bước 2 — Tech Stack & Kiến trúc hệ thống
+Bước 3 — Thiết kế Database / Schema dữ liệu
+Bước 4 — Thiết kế UI/UX
+Bước 5 — Rendering & Output Engine
+Bước 6 — Module hóa tính năng
+Bước 7 — Remote Control & Đồng bộ đa thiết bị
+Bước 8 — Kế hoạch xây dựng MVP → Mở rộng
+Bước 9 — Tích hợp OBS Studio
+Bước 10 — Audio Playback Module
+Bước 11 — Song & Bible Editor
+Bước 12 — Công cụ định dạng văn bản (Text Formatting Toolbar)
+Bước 13 — Tính năng nâng cao (Overlays, Templates, Calendar, Typography, PiP, Functions)
+Bước 14 — Bảng phím tắt chuyên nghiệp
+Bước 15 — Tra cứu Hebrew/Hy Lạp chuyên sâu
+Bước 16 — AI Dịch thuật theo nguyên ngữ Cơ Đốc
+Bước 17 — Nhóm tính năng còn thiếu so với ProPresenter
+Bước 18 — Nhóm tính năng còn thiếu so với FreeShow
+Bước 19 — Nhóm tính năng cấp Enterprise / Nhà thờ lớn
+Bước 20 — Backing Track & AI Auto-Sync Lời
+Bước 21 — Tích hợp Canva & Xóa nền AI
+Bước 22 — Mô hình License & Billing (Open Core)
+Bước 23 — Import/Export dữ liệu nâng cao
+Bước 24 — API Kinh Thánh (mở rộng bản dịch)
+Bước 25 — Đa ngôn ngữ giao diện (i18n)
+Kết luận
+===== PAGE 3 =====
+Tổng quan dự án
+WorshipCast là phần mềm trình chiếu Worship (thờ phượng) dành cho hội thánh, được thiết kế theo tiêu chuẩn 
+chuyên nghiệp tương đương ProPresenter, tối ưu cho vận hành thực tế trong buổi lễ: mượt, ổn định, dễ dùng 
+cho tình nguyện viên không chuyên IT.
+Đối tượng người dùng
+Vai trò Nhu cầu
+Người vận hành (Operator) Chuyển slide nhanh, chính xác, không lỗi giữa buổi lễ
+Nhạc sĩ / Ca đoàn Xem hợp âm, lời tiếp theo qua Stage Display
+Mục sư / Người giảng Điều khiển từ xa qua điện thoại
+Ban truyền thông Xuất hình cho livestream, quay video
+Bước 1 — Yêu cầu & Phạm vi (Requirements)
+1.1 Yêu cầu chức năng bắt buộc (MVP)
+• Hiển thị lời bài hát dạng slide, chuyển mượt (không giật / đen màn hình)
+• Quản lý thư viện bài hát (thêm / sửa / tìm kiếm)
+• Playlist kéo-thả cho thứ tự chương trình
+• Xuất hình ra màn hình thứ 2 (projector / TV) độc lập với màn hình vận hành
+• Nền động (video loop) phía sau lời bài hát
+• Stage Display — phiên bản đầu cho 1 màn hình, sẽ nâng cấp lên Pro (đa màn hình, Layout Designer) ở Giai 
+đoạn 2
+1.2 Yêu cầu phi chức năng
+Yêu cầu Chi tiết
+Độ trễ chuyển slide < 100ms — tiêu chí sống còn, tránh giật hình giữa buổi lễ
+Độ ổn định Không crash giữa chương trình; auto-save, auto-recovery
+Hiệu năng phần cứng Chạy tốt trên máy cấu hình thấp (RAM 4–8GB)
+Kết nối Offline-first — không phụ thuộc internet khi trình chiếu
+1.3 Ngoài phạm vi MVP (làm sau)
+• AI nhận diện giọng hát để auto-sync lời bài hát
+• Tích hợp livestream trực tiếp (NDI / streaming protocol)
+• Multi-language lyric song song 2 thứ tiếng (nâng cao)
+===== PAGE 4 =====
+Bước 2 — Tech Stack & Kiến trúc hệ thống
+2.1 Bảng công nghệ đề xuất
+Thành phần Công nghệ Lý do
+Output / Render Engine C++ với Skia hoặc bgfx Kiểm soát trực tiếp GPU, đảm bảo 
+<100ms latency
+UI quản lý Qt (C++) hoặc Tauri (Rust + web UI) Native, nhẹ hơn Electron nhiều lần
+Video decode/render FFmpeg + GPU shader 
+(Metal/DirectX/Vulkan)
+Chuẩn công nghiệp
+Database local SQLite Nhẹ, không cần server, phù hợp offline-
+first
+Đồng bộ đa màn hình Custom windowing layer, render 
+context riêng
+Tách Program/Output/Stage Display độc 
+lập
+Remote control (mobile) React Native hoặc Flutter Giao tiếp qua WebSocket/LAN, không cần 
+internet
+Giao thức đồng bộ WebSocket nội bộ + mDNS/Bonjour Auto-discover thiết bị trong cùng mạng
+2.2 Kiến trúc phân lớp (Layered Architecture)
+┌─────────────────────────────────────────┐
+│   UI Layer (Qt/Tauri)                    │
+│   - Song editor, Playlist, Settings      │
+├─────────────────────────────────────────┤
+│   Application/Domain Layer               │
+│   - Playlist logic, Slide state machine  │
+│   - Song/Bible data models               │
+├─────────────────────────────────────────┤
+│   Rendering Engine (C++/bgfx/Skia)       │
+│   - Compositor: text + background + fx   │
+│   - Multi-output manager                 │
+├─────────────────────────────────────────┤
+│   Media Pipeline (FFmpeg)                │
+│   - Video decode, audio, image cache     │
+├─────────────────────────────────────────┤
+│   Data Layer (SQLite + File system)      │
+│   - Song DB, Media assets, Settings      │
+├─────────────────────────────────────────┤
+│   Network Layer (WebSocket + mDNS)       │
+│   - Remote control, Stage Display sync   │
+└─────────────────────────────────────────┘
+2.3 Quyết định kiến trúc quan trọng nhất
+Tách UI (Program Process) và Output Engine (Output Process) thành 2 tiến trình độc lập, giao tiếp qua IPC. Nếu 
+gộp chung, khi người vận hành mở panel settings hay load file nặng, output sẽ bị giật — điều tuyệt đối không 
+được xảy ra giữa buổi lễ. Đây là cách OBS Studio tách preview và output.
+===== PAGE 5 =====
+Bước 3 — Thiết kế Database / Schema dữ liệu
+Sử dụng SQLite (single-file, dễ backup/sync, không cần server). Tách rõ nội dung (content) và cách trình bày 
+(presentation).
+3.1 Schema chính
+-- ===== BÀI HÁT =====
+CREATE TABLE songs (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    ccli_number TEXT,
+    author TEXT,
+    copyright TEXT,
+    default_key TEXT,
+    tags TEXT,
+    created_at DATETIME,
+    updated_at DATETIME
+);
+ 
+CREATE TABLE song_slides (
+    id INTEGER PRIMARY KEY,
+    song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    slide_order INTEGER,
+    section_label TEXT,
+    lyric_text TEXT NOT NULL,
+    chords TEXT,
+    language_code TEXT DEFAULT 'vi'
+);
+ 
+-- ===== KINH THÁNH =====
+CREATE TABLE bible_versions (
+    id INTEGER PRIMARY KEY,
+    version_code TEXT,
+    language TEXT
+);
+ 
+CREATE TABLE bible_verses (
+    id INTEGER PRIMARY KEY,
+    version_id INTEGER REFERENCES bible_versions(id),
+    book TEXT,
+    chapter INTEGER,
+    verse INTEGER,
+    text TEXT
+);
+ 
+-- ===== MEDIA =====
+CREATE TABLE media_assets (
+    id INTEGER PRIMARY KEY,
+    file_path TEXT NOT NULL,
+    media_type TEXT,
+    duration_ms INTEGER,
+    thumbnail_path TEXT,
+    added_at DATETIME
+);
+ 
+-- ===== TEMPLATE =====
+CREATE TABLE templates (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    font_family TEXT,
+    font_size INTEGER,
+    text_color TEXT,
+===== PAGE 6 =====
+    text_position TEXT,
+    background_media_id INTEGER REFERENCES media_assets(id),
+    transition_effect TEXT
+);
+ 
+-- ===== PLAYLIST =====
+CREATE TABLE playlists (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    service_date DATE,
+    created_at DATETIME
+);
+ 
+CREATE TABLE playlist_items (
+    id INTEGER PRIMARY KEY,
+    playlist_id INTEGER REFERENCES playlists(id) ON DELETE CASCADE,
+    item_order INTEGER,
+    item_type TEXT,
+    reference_id INTEGER,
+    template_id INTEGER REFERENCES templates(id)
+);
+ 
+-- ===== OUTPUT CONFIG =====
+CREATE TABLE output_configs (
+    id INTEGER PRIMARY KEY,
+    output_name TEXT,
+    monitor_index INTEGER,
+    resolution TEXT,
+    show_lyrics BOOLEAN,
+    show_chords BOOLEAN,
+    show_countdown BOOLEAN
+);
+3.2 Các quyết định thiết kế quan trọng
+• Tách song_slides khỏi songs: mỗi câu/đoạn là 1 đơn vị độc lập, dễ kéo-thả sắp xếp, hỗ trợ đa ngôn ngữ
+• Tách templates riêng: cùng 1 bài hát có thể đổi nền/giao diện theo từng buổi lễ mà không cần tạo lại
+• playlist_items dùng reference_id kiểu polymorphic: 1 playlist chứa nhiều loại nội dung khác nhau
+3.3 Index tối ưu
+CREATE INDEX idx_songs_title ON songs(title);
+CREATE INDEX idx_slides_song ON song_slides(song_id, slide_order);
+CREATE INDEX idx_playlist_items ON playlist_items(playlist_id, item_order);
+Bước 4 — Thiết kế UI/UX
+4.1 Nguyên tắc thiết kế
+• Zero-click-away: nút Next/Previous luôn cố định, không bị che
+• Contrast rõ giữa slide đang LIVE (đỏ/cam) và slide đang chọn (xanh)
+• Không popup chặn thao tác trong lúc live
+• Phím tắt cho mọi hành động chính (Space = next, ←/→ = chuyển slide, Esc = clear output)
+===== PAGE 7 =====
+4.2 Bố cục màn hình chính (Program Window)
+┌──────────────────────────────────────────────────────────────┐
+│  [Logo]  File  Edit  View  Output   [● LIVE]  [Clear] [Blank] │
+├───────────────┬──────────────────────────────┬────────────────┤
+│               │                               │                │
+│  THƯ VIỆN     │      SLIDE ĐANG CHỌN          │   PREVIEW      │
+│  (Library)    │      (Current Item Slides)    │   OUTPUT       │
+│               │                               │                │
+│  Tìm bài hát│  [V1]  [C1]  [V2]  ...        │  [ Hình LIVE ] │🔍
+│ - Bài hát A   │                               │                │
+│ - Bài hát B   │                               │                │
+│ - Kinh Thánh  │                               │                │
+│ - Media       │                               │                │
+├───────────────┴──────────────────────────────┴────────────────┤
+│  PLAYLIST (Order of Service) — kéo tha X sắZp xếZp                 │
+│  1. Bài hát A  2. Kinh Thánh Giắng 3:16  3. Bài hát B  4. ...  │
+└──────────────────────────────────────────────────────────────┘
+Vùng Chức năng
+Thư viện (trái) Tìm kiếm nhanh bài hát/Kinh Thánh/media để kéo vào playlist
+Slide đang chọn (giữa) Hiển thị tất cả slide của bài đang active, dạng thumbnail
+Preview Output (phải) Xem trước hình sẽ hiện ra màn hình lớn
+Playlist (dưới) Toàn bộ thứ tự chương trình, kéo-thả sắp xếp
+4.3 Luồng thao tác thực tế trong buổi lễ
+• 1. Mở playlist đã chuẩn bị sẵn
+• 2. Chọn item đầu tiên trong Playlist → slide hiện ở vùng giữa
+• 3. Click slide đầu (hoặc phím Space) → đẩy ra Output/Preview
+• 4. Dùng phím mũi tên / click thumbnail → chuyển slide tiếp theo
+• 5. Hết bài → tự động nhảy sang item tiếp theo (auto-advance tùy chọn)
+• 6. Cần chèn nội dung ngoài kịch bản → dùng tìm kiếm nhanh (Ctrl+F)
+• 7. Kết thúc → bấm Clear/Blank để tắt output
+4.4 Stage Display (cho ca đoàn/nhạc sĩ)
+┌─────────────────────────────────┐
+│  Lời hiện tại (to, rõ)          │
+│  "Chúa yếu con..."               │
+│                                   │
+│  Lời tiếZp theo (nho X hơn, mờ)     │
+│  "...và Ngài luôn ơ X bến..."      │
+│                                   │
+│  Đôgng hôg: 12:34   Hợp âm: G-D-Em │
+└─────────────────────────────────┘
+Ghi chú: Đây là ví dụ minh họa layout mặc định. Phiên bản đầy đủ (đa màn hình, tự thiết kế layout, tin nhắn từ operator) 
+xem chi tiết ở mục 6.2(e) — Stage Display Module (Phiên bản Pro).
+===== PAGE 8 =====
+4.5 Remote Control (mobile app)
+┌───────────────┐
+│  <  Slide 3/8  >  │
+│                    │
+│  [Playlist]        │
+│                    │
+│  [Clear]           │
+└───────────────┘
+4.6 Design System — trạng thái màu sắc
+Trạng thái Màu Ý nghĩa
+Đang LIVE trên output Đỏ (#E53935) Cảnh báo — đây là cái khán giả đang thấy
+Đang chọn (chưa đẩy ra) Xanh dương (#1E88E5) An toàn để chỉnh sửa
+Output đang Blank/Clear Xám Trạng thái nghỉ
+Lỗi/thiếu media Vàng cam viền đỏ Cảnh báo cần xử lý trước khi live
+Bước 5 — Rendering & Output Engine
+Đây là phần quyết định sống còn của phần mềm — nơi phân biệt một app 'trông giống ProPresenter' với một 
+app 'chạy mượt như ProPresenter'.
+5.1 Vấn đề cốt lõi cần giải quyết
+• Chuyển slide tức thời, không giật, không nháy đen
+• Video nền loop liên tục kể cả khi đổi lời phía trên
+• Nhiều output đồng bộ cùng lúc, không lệch frame
+• UI thao tác không ảnh hưởng tốc độ render output
+5.2 Kiến trúc 2 tiến trình tách biệt
+┌─────────────────────┐   IPC/Shared Memory   ┌─────────────────────┐
+│   PROGRAM PROCESS    │ ─────────────────────► │   OUTPUT PROCESS     │
+│   (UI, Qt/Tauri)      │   (chỉ X gửXi lệnh, không │   (Render Engine)    │
+│                       │    gửXi hình a Xnh nặng)   │                       │
+│  - Thử viện bài hát   │                        │  - Compositor        │
+│  - Playlist           │  Lệnh: {slide_id,       │  - GPU render loop    │
+│  - Preview (nhẹ)      │   template_id,          │  - Multi-monitor     │
+│                       │   transition, timestamp}│    output manager     │
+│                       │ ◄───────────────────── │                       │
+│                       │  Trạng thái: đã render  │                       │
+└─────────────────────┘                        └─────────────────────┘
+Ghi chú: Nếu UI process bị treo, Output process vẫn sống độc lập, màn hình lớn vẫn không bị đen/crash.
+5.3 Vòng đời một lệnh chuyển slide
+[User click slide]
+      ↓
+[Program Process: tạo Command Object]
+   { slide_id: 123, template_id: 5, transition: "fade", duration_ms: 300 }
+===== PAGE 9 =====
+      ↓
+[GửXi qua IPC — chỉ X gửXi ID và metadata]
+      ↓
+[Output Process nhận lệnh → tra cứu cache]
+   → Đã cache: render ngay (<16ms)
+   → Chửa cache: render mới + ca Xnh báo UI
+      ↓
+[GPU Compositor ghép lớp]
+   Layer 1: Video/AXnh nếgn (loop liến tục)
+   Layer 2: Text lyric (theo template)
+   Layer 3: Overlay (countdown, logo...)
+      ↓
+[Transition Effect Engine — GPU shader fade/cut/slide]
+      ↓
+[Present ra từng Output Window — đôgng bộ qua VSync]
+5.4 Pre-rendering / Caching — chống giật
+• Khi chọn 1 item trong Playlist, hệ thống pre-render trước toàn bộ slide vào GPU texture cache
+• Bấm Next chỉ là swap texture đã có sẵn, không render from scratch
+• Video nền: FFmpeg decode trước vài frame vào ring buffer, tránh giật khung hình đầu
+Bộ nhớ Cache (giới hạn ví dụ 500MB, LRU eviction):
+┌──────────────────────────────────────────────┐
+│ Slide hiện tại (live)              [giữ]      │
+│ Slide kếZ tiếZp trong playlist        [giữ]      │
+│ Slide trửớc đó (phòng back)         [giữ]      │
+│ Video nếgn đang dùng                 [giữ]      │
+│ Các slide khác trong item           [giữ nếZu đu X RAM] │
+│ Slide cu Xa item xa trong list        [gia Xi phóng trửớc]│
+└──────────────────────────────────────────────┘
+5.5 Quản lý đa Output (Multi-output Manager)
+Output Process
+    ├── Output 1: "Màn chiếZu chính"     → Full lyric + background
+    ├── Output 2: "Stage Display"        → Lyric hiện tại + tiếZp theo + hợp âm
+    ├── Output 3: "Livestream/NDI"       → Full lyric + logo watermark
+    └── Output 4: "Confidence monitor"   → GiôZng Output 1, không viếgn đen
+5.6 Đồng bộ tránh lệch khung hình (Frame Sync)
+Tất cả output dùng chung 1 Master Clock trong Output Process. Mỗi render context vẽ theo cùng 1 timestamp 
+để tránh lệch giữa các màn hình.
+5.7 Xử lý lỗi (Failsafe) — bắt buộc
+Tình huống Giải pháp thiết kế
+Output process crash Program process phát hiện qua heartbeat (500ms) → tự động restart, giữ 
+trạng thái slide cuối
+Media file thiếu/hỏng Hiển thị placeholder đen thay vì crash toàn bộ, cảnh báo đỏ trên UI
+GPU không hỗ trợ shader Fallback về render CPU đơn giản (cut, không fade)
+Mất điện đột ngột Auto-save trạng thái mỗi 5 giây vào SQLite, hỏi khôi phục khi mở lại
+===== PAGE 10 =====
+Bước 6 — Module hóa tính năng
+6.1 Sơ đồ các module
+                    ┌─────────────────┐
+                    │  Core Engine     │
+                    │  (Bửớc 5)        │
+                    └────────┬────────┘
+                             │ Slide Data Interface
+        ┌──────────┬────────┼────────┬──────────┬──────────┐
+        ▼          ▼        ▼        ▼          ▼          ▼
+   [ Song ]   [ Bible ] [ Media ] [Playlist] [ Stage ]  [ Remote  ]
+   [Module]   [Module ] [Module ] [ Module ] [Display]  [ Control ]
+interface ISlideProvider {
+    getSlides(itemId): Slide[]
+    getPreviewThumbnail(slideId): Image
+    getMetadata(itemId): { title, type, duration }
+}
+6.2 Chi tiết từng module
+a) Song Module
+• CRUD bài hát, tự động tách đoạn (Verse/Chorus) từ text dán vào
+• Nhận diện pattern lặp lại (Chorus lặp 2 lần) → gợi ý gộp
+• Import: CCLI SongSelect, ChordPro (.cho), plain text
+• Export: PDF hợp âm cho ca đoàn in ra giấy
+b) Bible Module
+• Tìm câu theo sách-chương-câu hoặc từ khóa
+• Auto-range: chọn Giăng 3:16-18 tự động tách thành 3 slide
+• Multi-version: hiện song song 2 bản dịch trên cùng 1 slide
+c) Media Module
+• Quản lý thư viện video/ảnh nền, thumbnail preview
+• Tự động phân loại: Nền tĩnh, Nền động, Video thông báo, Video bài giảng
+• Nén/tối ưu media khi import để tránh lỗi trên máy yếu
+d) Playlist Module
+• Kéo-thả sắp xếp thứ tự chương trình
+• Service Template: lưu cấu trúc buổi lễ chuẩn, tái sử dụng hàng tuần
+e) Stage Display Module (Phiên bản Pro)
+Không dừng ở mức cơ bản — thiết kế ngang tầm ProPresenter, hỗ trợ nhiều màn hình Stage Display độc lập, mỗi 
+màn hình có layout và vai trò riêng.
+Nhiều màn hình Stage Display độc lập
+Màn hình Nội dung hiển thị
+Trưởng nhóm thờ phượng Lời hiện tại + tiếp theo, hợp âm, đồng hồ, tin nhắn từ operator
+===== PAGE 11 =====
+Màn hình Nội dung hiển thị
+Ca đoàn Chỉ lời (không hợp âm), font to hơn
+Nhạc công (guitar/keyboard) Hợp âm to, lời nhỏ, capo/tone hiển thị riêng
+MC / người dẫn chương trình Kịch bản buổi lễ, đồng hồ đếm ngược đến mục tiếp theo
+Layout Designer — kéo-thả tự thiết kế
+• Người quản trị tự sắp xếp widget trên canvas: Current Slide, Next Slide, Clock, Timer, Chords, Message, 
+Video feed
+• Mỗi widget chỉnh được: vị trí, kích thước, font, màu, độ mờ (opacity)
+• Lưu nhiều layout template, gán riêng cho từng màn hình/vai trò
+Stage Messages — tin nhắn trực tiếp từ Operator
+• Operator gõ tin nhắn ngắn ("Hát thêm 1 lần điệp khúc", "Còn 2 phút") → hiện ngay trên Stage Display dạng 
+banner
+Countdown / Timer linh hoạt
+• Đếm ngược tới giờ bắt đầu lễ
+• Đếm ngược thời lượng bài giảng
+• Đồng hồ hệ thống (giờ thực)
+Video feed / Confidence Monitor tích hợp
+• Nhúng hình preview camera hoặc hình output chính vào góc màn hình Stage Display
+Đa nền tảng kết nối
+• Chạy trên màn hình cắm dây (HDMI) hoặc qua web browser (mở link nội bộ trên iPad/laptop riêng của từng 
+nhạc công)
+Bổ sung Database schema cho Stage Display Pro
+CREATE TABLE stage_displays (
+    id INTEGER PRIMARY KEY,
+    name TEXT,                  -- "Màn hình trửơ Xng nhóm", "Màn hình ca đoàn"
+    layout_id INTEGER REFERENCES stage_layouts(id),
+    output_target TEXT          -- 'hdmi', 'web'
+);
+ 
+CREATE TABLE stage_layouts (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    widgets TEXT                -- JSON: [{type, x, y, w, h, font, color, opacity}, ...]
+);
+ 
+CREATE TABLE stage_messages (
+    id INTEGER PRIMARY KEY,
+    message TEXT,
+    sent_at DATETIME,
+    target_display_id INTEGER REFERENCES stage_displays(id)
+);
+f) Remote Control Module
+• Giao tiếp qua WebSocket nội bộ (LAN), không cần internet
+===== PAGE 12 =====
+• Phân quyền: Operator (toàn quyền) vs Viewer-only (chỉ xem)
+6.3 Interface giao tiếp giữa Module và Core Engine
+Playlist Module
+    → gọi getSlides(item) từ Song/Bible/Media Module tửơng ứng
+    → gửXi danh sách Slide[] chuâXn hóa cho Core Engine
+    → Core Engine render theo Bửớc 5
+ 
+Remote Control Module
+    → gửXi lệnh "next/previous/goto(slideId)"
+    → Core Engine xửX lý y hệt nhử khi bâZm từ Program UI
+    → không có đửờng tắZt nào bo X qua Core Engine
+Bước 7 — Remote Control & Đồng bộ đa thiết bị
+7.1 Cơ chế khám phá thiết bị (Discovery)
+• Máy chủ (Program Process) quảng bá dịch vụ qua mDNS/Bonjour trong mạng LAN
+• Điện thoại (Remote App) tự động tìm và liệt kê các máy WorshipCast đang chạy gần đó
+• Không cần nhập IP thủ công — giống cách ProPresenter Remote hoạt động
+7.2 Giao thức đồng bộ
+Remote App (Mobile)  ←── WebSocket (LAN) ──→  Program Process (Desktop)
+      │                                              │
+      │  gửXi: { action: "next" }                     │
+      │  gửXi: { action: "goto", slideId: 45 }         │
+      │                                              │
+      │  nhận: { currentSlide, nextSlide, playlist }  │  ← cập nhật real-time
+      │                                              ▼
+      │                                     Core Engine xửX lý
+      │                                     (giôZng Bửớc 5)
+7.3 Phân quyền thiết bị
+Vai trò Quyền
+Operator Toàn quyền: chuyển slide, sửa playlist, clear output
+Preacher/Viewer Chỉ chuyển slide bài đang active, không sửa được playlist
+Viewer-only Chỉ xem trạng thái hiện tại, không thao tác được
+7.4 Rủi ro kết nối thực tế & Mức độ khó
+Với người dùng cuối, kết nối dễ dàng trong đa số trường hợp — chỉ cần điện thoại và máy tính chạy WorshipCast 
+cùng một mạng WiFi, mDNS/Bonjour sẽ tự tìm thấy nhau mà không cần nhập IP. Tuy nhiên có một số tình huống 
+thực tế hay gặp ở hội thánh cần lưu ý:
+Vấn đề Nguyên nhân Mức độ khó
+Điện thoại không tìm thấy 
+máy chủ
+WiFi guest network bật AP/Client Isolation (cô 
+lập thiết bị — phổ biến ở router hội thánh, quán 
+cà phê)
+Khó — cần đổi cấu hình 
+router
+===== PAGE 13 =====
+Vấn đề Nguyên nhân Mức độ khó
+Điện thoại dùng 4G/5G thay 
+vì WiFi
+Người dùng quên tắt data di động Dễ — chỉ cần nhắc tắt 4G, 
+dùng WiFi
+Nhiều VLAN/mạng con Hội thánh lớn chia mạng khách/nội bộ riêng 
+khiến mDNS không nhìn thấy xuyên VLAN
+Khó — cần IT cấu hình lại 
+mạng hoặc dùng IP tĩnh
+Firewall chặn WebSocket Windows Defender Firewall mặc định có thể 
+chặn kết nối lần đầu
+Trung bình — app cần tự 
+xin quyền firewall khi cài 
+đặt
+7.5 Cơ chế kết nối dự phòng (Failsafe cho kết nối)
+Để xử lý các trường hợp mạng phức tạp, thiết kế bổ sung 3 lớp dự phòng sau, thay vì chỉ phụ thuộc vào mDNS:
+• Fallback nhập IP thủ công: nếu mDNS không tìm thấy máy chủ, cho phép gõ tay địa chỉ IP — Program 
+Window luôn hiển thị sẵn IP máy tính để người vận hành đọc và nhập
+• QR code kết nối nhanh: Program Window hiện QR code chứa thông tin kết nối (IP + port), điện thoại quét là 
+vào ngay, tránh gõ tay sai
+• Kiểm tra kết nối trước giờ lễ: nút "Kiểm tra kết nối" để test thử trước 15 phút, tránh phát hiện lỗi ngay lúc 
+đang live
+Luôgng kếZt nôZi (có dự phòng):
+ 
+[Mơ X Remote App]
+      ↓
+[Quét mDNS trong LAN — auto-discover]
+      ↓
+   Tìm thâZy? ──── Có ──→ Hiện danh sách máy chu X → Chọn → KếZt nôZi
+      │
+      Không
+      ↓
+[Hiện màn hình dự phòng]
+   → Quét QR code hiếXn thị trến Program Window, hoặc
+   → Nhập tay IP + port hiếXn thị sắn trến Program Window
+      ↓
+[KếZt nôZi WebSocket trực tiếZp theo IP]
+Ghi chú: Thông báo lỗi kết nối phải rõ ràng, ví dụ: "Không tìm thấy máy chủ — kiểm tra điện thoại và máy tính có cùng WiFi 
+không?" thay vì im lặng treo, vì người vận hành thường là tình nguyện viên không rành về mạng.
+7.6 Đồng bộ trạng thái khi mất kết nối
+Nếu điện thoại mất kết nối WiFi tạm thời, khi kết nối lại, Remote App tự động đồng bộ lại trạng thái playlist/slide 
+hiện tại từ Program Process — tránh gửi lệnh dựa trên dữ liệu cũ gây nhảy sai slide.
+Bước 8 — Kế hoạch xây dựng MVP → Mở rộng
+8.1 Giai đoạn 1 — MVP (Minimum Viable Product)
+• Song Module cơ bản + Playlist + Output single-screen
+• Rendering Engine: chỉ cần cut/fade, chưa cần hiệu ứng phức tạp
+• Database SQLite, chưa cần cloud sync
+• Mục tiêu: dùng được thật cho 1 buổi lễ Chúa Nhật
+===== PAGE 14 =====
+8.2 Giai đoạn 2 — Mở rộng tính năng vận hành
+• Stage Display Pro: đa màn hình độc lập, Layout Designer kéo-thả, Stage Messages, Confidence Monitor
+• Bible Module, Media Module đầy đủ
+• Remote Control mobile app
+8.3 Giai đoạn 3 — Tính năng nâng cao
+• AI auto-sync lời bài hát theo giọng hát thực tế
+• Tích hợp NDI/livestream trực tiếp
+• Multi-language lyric song song
+• Cloud backup/sync thư viện bài hát giữa nhiều máy
+8.4 Bảng tóm tắt độ ưu tiên
+Giai đoạn Trọng tâm Thời gian ước tính
+MVP Chạy được 1 buổi lễ thật, ổn định 6–10 tuần
+Giai đoạn 2 Đầy đủ tính năng vận hành chuyên nghiệp 8–12 tuần
+Giai đoạn 3 Tính năng nâng cao, cạnh tranh trực tiếp ProPresenter Liên tục / theo nhu cầu
+Bước 9 — Tích hợp OBS Studio
+Tính năng tùy chọn (opt-in), tắt/bật được, giống cách FreeShow tích hợp OBS. Khi tắt, không tốn tài nguyên, 
+không mở kết nối mạng nào, panel điều khiển ẩn hoàn toàn khỏi giao diện chính.
+9.1 Nguyên tắc thiết kế
+• Module độc lập, opt-in: không ảnh hưởng hiệu năng hay giao diện khi không dùng
+• Dùng chuẩn OBS WebSocket v5 — tích hợp sẵn trong OBS Studio (từ bản 28+), không cần plugin ngoài
+• Một chiều điều khiển, không phụ thuộc: nếu OBS tắt hoặc mất kết nối, chức năng trình chiếu chính vẫn hoạt 
+động bình thường, không bao giờ để OBS làm crash hoặc treo phần lõi
+9.2 Kiến trúc kết nối
+┌─────────────────────┐  OBS WebSocket (ws://IP:4455)  ┌─────────────────┐
+│   WorshipCast         │ ───────────────────────────►  │   OBS Studio     │
+│   (OBS Module - tắZt/bật)│                              │   (obs-websocket │
+│                       │ ◄─────────────────────────── │    built-in)     │
+│  - Danh sách Scene    │  Trạng thái: scene hiện tại,   │                 │
+│  - Nút chuyếXn Scene   │  đang stream/record hay không  │                 │
+│  - Start/Stop Stream  │                                │                 │
+│  - Start/Stop Record  │                                │                 │
+└─────────────────────┘                                ┴─────────────────┘
+Kết nối qua LAN giống cơ chế Remote Control (Bước 7) — cùng dùng WebSocket, cùng cần fallback nhập 
+IP/password nếu auto-discover không thấy.
+===== PAGE 15 =====
+9.3 Công tắc Bật/Tắt
+┌───────────────────────────────────────┐
+│  Tích hợp OBS Studio      [ TắZt/Bật ]  │
+│                                         │
+│  Địa chỉ X OBS: 127.0.0.1 : 4455         │
+│  Mật khâXu:    ********                 │
+│  Trạng thái:  Chửa kếZt nôZi             │
+│                                         │
+│  [ KiếXm tra kếZt nôZi ]                  │
+└───────────────────────────────────────┘
+Trạng thái Hành vi
+Tắt Không mở kết nối WebSocket tới OBS, không có tiến trình chạy nền, panel điều khiển 
+ẩn hoàn toàn khỏi giao diện
+Bật Tự kết nối khi mở app (hoặc kết nối thủ công), hiện panel điều khiển OBS trong 
+Program Window
+9.4 Panel điều khiển Scene / Stream / Record
+┌─────────────────────────────────────┐
+│  OBS   Đã kếZt nôZi                    │
+├─────────────────────────────────────┤
+│  [ Scene: Camera chính ]  ← đang live│
+│  [ Scene: Full-screen Lyric ]        │
+│  [ Scene: Camera + Lyric ]           │
+│  [ Scene: Màn hình chờ ]             │
+├─────────────────────────────────────┤
+│  [ BắZt đâgu Stream ]  [ BắZt đâgu Ghi ] │
+└─────────────────────────────────────┘
+9.5 Tự động chuyển Scene theo Playlist
+Gắn OBS Scene vào từng loại nội dung trong Playlist — khi operator chuyển bài hát trong WorshipCast, OBS tự 
+động đổi scene theo, không cần thao tác 2 lần trên 2 phần mềm. Tính năng này tắt/bật độc lập với công tắc tích 
+hợp OBS chính.
+Loại nội dung đang trình chiếu Scene OBS tự chuyển sang
+Bài hát (lyric) Full-screen Lyric hoặc Camera + Lyric
+Kinh Thánh Full-screen Lyric
+Giảng (không slide) Camera chính
+Blank/Clear Màn hình chờ
+9.6 Audio Mixer của OBS
+Panel riêng, tách khỏi panel Scene để không gây rối giao diện. Cho phép điều khiển trực tiếp các nguồn âm 
+thanh trong OBS ngay từ WorshipCast.
+┌─────────────────────────────────────────┐
+│  OBS Audio Mixer          Đã kếZt nôZi     │
+├─────────────────────────────────────────┤
+│  Mic Gia Xng            [────●────] -12dB  │
+│                        [ Mute ]           │
+│                                            │
+===== PAGE 16 =====
+│  Mic Ca đoàn          [──●──────] -18dB  │
+│                        [ Mute ]           │
+│                                            │
+│  Nhạc cụ/Line-in      [──────●──]  -6dB  │
+│                        [ Mute ]           │
+│                                            │
+│  Âm thanh Desktop     [────●────] -10dB  │
+│                        [ Mute ]           │
+└─────────────────────────────────────────┘
+Các request OBS WebSocket v5 sử dụng
+Chức năng Request OBS WebSocket tương ứng
+Lấy danh sách nguồn âm thanh GetInputList
+Lấy mức volume hiện tại GetInputVolume
+Chỉnh volume SetInputVolume
+Mute / Unmute SetInputMute / ToggleInputMute
+Trạng thái mute hiện tại GetInputMute
+Theo dõi mức âm lượng real-time (VU meter) Sự kiện InputVolumeMeters (OBS tự đẩy liên tục)
+9.7 Quick Mute Scene — Preset âm thanh theo nội dung
+Tình huống thực tế: khi chuyển từ Giảng sang Thờ phượng, thường cần tắt mic giảng, bật mic ca đoàn cùng lúc. 
+Preset gắn theo loại nội dung, giống cách gắn Scene ở mục 9.5.
+Loại nội dung Preset Audio tự áp dụng
+Giảng Mic Giảng: Unmute, Mic Ca đoàn: Mute
+Thờ phượng Mic Giảng: Mute, Mic Ca đoàn: Unmute, Nhạc cụ: Unmute
+Blank/Nghỉ Tất cả: Mute (trừ Desktop)
+Ghi chú: Tính năng auto-mute mặc định TẮT. Người dùng phải chủ động bật và xác nhận preset trước mỗi buổi lễ, vì lỡ 
+nhầm audio ban nhạc thành mute giữa buổi sẽ ảnh hưởng nghiêm trọng đến chương trình.
+9.8 Bổ sung Database schema
+CREATE TABLE obs_config (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,        -- công tắZc bật/tắZt tôXng
+    host TEXT,
+    port INTEGER DEFAULT 4455,
+    password_encrypted TEXT,
+    auto_scene_switch BOOLEAN DEFAULT 0,
+    auto_audio_preset BOOLEAN DEFAULT 0
+);
+ 
+CREATE TABLE obs_scene_mapping (
+    id INTEGER PRIMARY KEY,
+    content_type TEXT,                -- 'song', 'bible', 'preaching', 'blank'
+    obs_scene_name TEXT
+);
+ 
+CREATE TABLE obs_audio_sources (
+    id INTEGER PRIMARY KEY,
+===== PAGE 17 =====
+    obs_input_name TEXT,              -- tến nguôgn âm thanh trong OBS
+    display_name TEXT,                -- tến hiếXn thị dế hiếXu, VD "Mic Gia Xng"
+    icon TEXT
+);
+ 
+CREATE TABLE obs_audio_presets (
+    id INTEGER PRIMARY KEY,
+    content_type TEXT,                -- 'preaching', 'worship', 'blank'
+    preset_config TEXT                -- JSON: [{input_name, muted, volume_db}, ...]
+);
+9.9 Failsafe (bắt buộc, theo đúng nguyên tắc Bước 5)
+Tình huống Xử lý
+OBS chưa mở / không chạy Trạng thái hiện Chưa kết nối, không chặn thao tác trình chiếu chính
+Mất kết nối giữa buổi lễ Tự động thử kết nối lại nền (retry), không hiện popup gây gián đoạn
+Sai mật khẩu/IP Báo lỗi rõ ràng ở panel Settings, không phải popup giữa lúc live
+OBS Scene bị đổi tên/xóa trong OBS Cảnh báo vàng ở mapping, không tự chuyển scene thay vì lỗi crash
+Nguồn audio bị xóa/đổi tên trong OBS Cảnh báo vàng ở panel mapping, không tự mute nhầm nguồn khác
+Lệnh mute/volume gửi thất bại Hiện trạng thái Không đồng bộ trên fader đó, không giả định đã thành 
+công
+Auto preset áp dụng nhầm lúc đang live Có nút Hoàn tác preset (undo) khôi phục trạng thái audio trước đó 
+trong 10 giây
+Bước 10 — Audio Playback Module
+Module phát nhạc nền/nhạc lễ độc lập với phần video nền đã có ở Media Module (Bước 6) — ví dụ nhạc dạo 
+đầu giờ, nhạc nền lúc cầu nguyện, nhạc chuyển cảnh giữa các mục. Tách thành module riêng vì mục đích sử 
+dụng khác hẳn video nền: Audio Playback chạy song song, độc lập với luồng slide.
+10.1 Nguyên tắc thiết kế
+• Độc lập với luồng Slide chính: nhạc tiếp tục phát xuyên suốt khi operator chuyển slide/bài hát/mục Kinh 
+Thánh — không bị ngắt theo slide như video nền
+• Có UI điều khiển riêng, giống 1 music player mini trong Program Window, không lẫn với luồng trình chiếu
+• Không xung đột với nhạc live: khi ban nhạc chơi trực tiếp, operator cần tắt/fade nhạc nền nhanh — thao tác 
+tối giản, 1 click
+10.2 Panel Audio Player trong Program Window
+┌───────────────────────────────────────────┐
+│  AUDIO PLAYER                               │
+├───────────────────────────────────────────┤
+│  Đang phát: "Piano Instrumental 03"         │
+│  [────●───────────]  01:24 / 04:10          │
+│  Vol [──────●────]  75%                      │
+│                                              │
+│  [ Trửớc ]  [ Play/Pause ]  [ Sau ]         │
+│  [ Lặp ]  [ Ngâu nhiến ]  [ Fade out ]      │
+├───────────────────────────────────────────┤
+===== PAGE 18 =====
+│  DANH SÁCH PHÁT (Playlist)                  │
+│  > 1. Piano Instrumental 03      04:10      │
+│    2. Worship Ambient Pad        06:32      │
+│    3. Nhạc dạo đâgu giờ           03:15      │
+│    4. Nhạc chuyếXn ca Xnh nhẹ       02:00      │
+└───────────────────────────────────────────┘
+10.3 Tính năng chính
+Tính năng Mô tả
+Playlist audio riêng Tạo nhiều danh sách phát khác nhau ("Nhạc đầu giờ", "Nhạc nền cầu 
+nguyện"), kéo-thả sắp xếp
+Tự động chuyển bài (auto-advance) Hết bài tự nhảy bài tiếp theo, không cần thao tác tay
+Chế độ lặp Lặp 1 bài / lặp toàn bộ danh sách / phát 1 lần rồi dừng
+Phát ngẫu nhiên (shuffle) Xáo trộn thứ tự phát, hữu ích cho nhạc nền dài
+Fade in/out Tự động fade khi chuyển bài hoặc khi dừng, tránh cắt nhạc đột ngột
+Gắn playlist theo Service Template Playlist nhạc gắn sẵn vào từng buổi lễ, tự load khi mở chương trình Chúa 
+Nhật
+10.4 Tự động điều phối theo ngữ cảnh
+Nhạc nền tự động fade-out khi có nội dung khác cần âm thanh riêng — điểm mạnh giống FreeShow:
+Tình huống Hành vi Audio Player
+Bắt đầu chương trình, chưa vào phần thờ 
+phượng
+Tự phát playlist "Nhạc đầu giờ"
+Chuyển sang bài hát thờ phượng (có ban nhạc 
+live)
+Tự động fade-out nhạc nền trong 2 giây
+Chuyển sang Blank/Clear giữa các mục Tự động phát tiếp playlist "Nhạc chuyển cảnh"
+Mục sư bắt đầu giảng Tự động dừng hẳn audio player
+Ghi chú: Tính năng auto-fade theo ngữ cảnh mặc định TẮT, giống nguyên tắc failsafe áp dụng cho OBS ở Bước 9 — tránh 
+nhạc tự tắt/bật sai thời điểm.
+10.5 Crossfade mượt giữa 2 bài (DJ-style)
+Khác với fade in/out đơn giản (bài A tắt hẳn rồi bài B mới bắt đầu), crossfade là 2 bài chồng lên nhau trong lúc 
+chuyển, giống Spotify/DJ app:
+Bài A  ████████████████▓▓▓▓░░░░
+Bài B                  ░░░░▓▓▓▓████████████████
+                        └── vùng chôgng (crossfade) ──┘
+                        (thửờng 2-8 giây, tùy chỉ Xnh)
+Tùy chọn Mô tả
+Thời lượng crossfade Tùy chỉnh 1-10 giây (mặc định 3s)
+Đường cong fade (curve) Linear (đều) hoặc Equal-power (tự nhiên hơn tai người) — mặc định Equal-
+===== PAGE 19 =====
+Tùy chọn Mô tả
+power
+Beat-matched crossfade (nâng cao) Phát hiện BPM 2 bài, canh chuyển đúng nhịp thay vì cắt ngang — tùy chọn 
+cho nhạc có nhịp rõ
+Gapless playback Với album/track liền mạch, không có khoảng lặng dù không bật crossfade
+10.6 Tính năng Audio chuyên nghiệp — tối ưu cho Livestream/YouTube
+Các kỹ thuật xử lý âm thanh chuẩn broadcast, giúp tiếng nhạc không bị quá nhỏ/quá to đột ngột, bí tiếng, hay 
+cháy tiếng khi mix với mic:
+Tính năng Vấn đề nó giải quyết
+Loudness Normalization (chuẩn LUFS, -14 LUFS 
+theo YouTube)
+Các bài nhạc khác nguồn thường to/nhỏ không đều — chuẩn hóa 
+giúp âm lượng đồng đều xuyên suốt livestream
+Limiter (giới hạn đỉnh âm) Chặn âm thanh vượt ngưỡng gây vỡ tiếng/clip, đặc biệt khi mix 
+nhạc nền + mic
+Compressor (nén dải động) Làm đều âm lượng trong 1 bài, nghe dày và chuyên nghiệp hơn 
+trên loa nhỏ/YouTube
+EQ 3 băng (Bass/Mid/Treble) Chỉnh màu âm phù hợp phòng/thiết bị, cắt bớt tần số đục hay rè 
+cao
+Audio Ducking (né âm tự động) Khi mic giảng/MC lên tiếng, nhạc nền tự động nhỏ xuống, hết nói 
+tự to lại
+Auto-Gain theo từng track Mỗi bài tự cân bằng gain khi import, tránh phải chỉnh tay volume 
+từng bài
+10.7 Kiến trúc xử lý Audio Engine
+┌─────────────────────────────────────────────────────┐
+│                AUDIO ENGINE (tiếZn trình riếng)        │
+├─────────────────────────────────────────────────────┤
+│  [Track A] ──┐                                        │
+│              ├──► [Crossfade Mixer] ──► [Compressor]  │
+│  [Track B] ──┘                            │            │
+│                                       [Limiter]        │
+│                                            │            │
+│  [Mic input] ──► [Ducking Detector] ──► [EQ] ──► [Master Bus]│
+│                                                    │     │
+│                                        ┌───────────┴────────┐
+│                                        ▼                    ▼
+│                                [Loa phòng/Output]   [GửXi qua OBS Audio
+│                                                       (cho Livestream)]
+└─────────────────────────────────────────────────────┘
+Điểm quan trọng: Audio Engine cho phép route riêng 2 đường ra — âm lượng nhạc nền phát trong phòng (loa 
+hội thánh) có thể khác với mức gửi lên OBS để livestream (nhạc nền trong phòng để nhỏ hơn vì có tiếng vang tự 
+nhiên, nhưng đường gửi lên YouTube cần đủ to và đã qua limiter/normalize).
+Cơ chế kỹ thuật: Audio Engine → OBS
+Đường 'Gửi qua OBS Audio' ở sơ đồ trên hoạt động qua 1 trong 2 cơ chế, tùy hệ điều hành:
+===== PAGE 20 =====
+Cơ chế Mô tả
+Virtual Audio Device (mặc định) WorshipCast tạo 1 thiết bị âm thanh ảo nội bộ (giống 
+VB-Cable/BlackHole) — OBS chọn thiết bị này làm Audio Input Source 
+bình thường, không cần cấu hình gì thêm
+OBS WebSocket Audio Input (khi đã bật 
+tích hợp OBS ở Bước 9)
+Nếu tích hợp OBS đang Bật, Audio Engine đẩy trực tiếp buffer âm 
+thanh qua kết nối WebSocket đã thiết lập, không cần thiết bị ảo trung 
+gian
+Ghi chú: Cơ chế Virtual Audio Device hoạt động độc lập, không yêu cầu bật tích hợp OBS (Bước 9) — vì vậy Audio Playback 
+Module vẫn gửi được tiếng cho phần mềm livestream khác (không riêng OBS) ngay cả khi module OBS đang tắt.
+Phân định Free/Pro trong Audio Playback Module
+Toàn bộ Audio Playback Module — kể cả Loudness Normalization, Compressor, Limiter, EQ, Audio Ducking — 
+chạy bằng xử lý tín hiệu số (DSP) hoàn toàn cục bộ trên máy, không gọi API bên ngoài nào, nên không phát sinh 
+chi phí vận hành cho WorshipCast. Theo nguyên tắc "free được thì cho free hết", toàn bộ module này thuộc 
+Free.
+Nhóm tính năng Tier
+Playlist, auto-advance, loop, shuffle, fade in/out, crossfade Free
+Loudness Normalization (LUFS), Compressor, Limiter, EQ, Audio 
+Ducking
+Free — DSP xử lý local, không gọi API, không có 
+chi phí hạ tầng
+10.8 Bổ sung Database schema
+CREATE TABLE audio_tracks (
+    id INTEGER PRIMARY KEY,
+    file_path TEXT NOT NULL,
+    title TEXT,
+    duration_ms INTEGER,
+    added_at DATETIME
+);
+ 
+CREATE TABLE audio_playlists (
+    id INTEGER PRIMARY KEY,
+    name TEXT,                          -- "Nhạc đâgu giờ", "Nhạc nếgn câgu nguyện"
+    loop_mode TEXT,                      -- 'none', 'single', 'all'
+    shuffle BOOLEAN DEFAULT 0,
+    crossfade_enabled BOOLEAN DEFAULT 0,
+    crossfade_duration_ms INTEGER DEFAULT 3000,
+    crossfade_curve TEXT DEFAULT 'equal_power'
+);
+ 
+CREATE TABLE audio_playlist_items (
+    id INTEGER PRIMARY KEY,
+    playlist_id INTEGER REFERENCES audio_playlists(id) ON DELETE CASCADE,
+    track_id INTEGER REFERENCES audio_tracks(id),
+    item_order INTEGER
+);
+ 
+CREATE TABLE audio_auto_rules (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,          -- mặc định tắZt
+    trigger_type TEXT,                  -- 'on_song', 'on_blank', 'on_preaching'
+    action TEXT,                        -- 'play', 'fade_out', 'stop'
+    playlist_id INTEGER REFERENCES audio_playlists(id)
+);
+===== PAGE 21 =====
+ 
+CREATE TABLE audio_master_settings (
+    id INTEGER PRIMARY KEY,
+    target_lufs REAL DEFAULT -14.0,     -- chuâXn hóa loudness theo YouTube
+    limiter_enabled BOOLEAN DEFAULT 1,
+    compressor_ratio REAL DEFAULT 2.0,
+    eq_bass_db REAL DEFAULT 0,
+    eq_mid_db REAL DEFAULT 0,
+    eq_treble_db REAL DEFAULT 0,
+    ducking_enabled BOOLEAN DEFAULT 0,  -- mặc định tắZt, câgn câZu hình mic trửớc
+    ducking_reduction_db REAL DEFAULT -12,
+    room_output_gain_db REAL DEFAULT 0,
+    stream_output_gain_db REAL DEFAULT 0 -- route riếng cho OBS/Livestream
+);
+10.9 Failsafe
+Tình huống Xử lý
+File nhạc bị thiếu/hỏng Tự động skip sang bài tiếp theo, cảnh báo vàng trong playlist
+Auto-fade kích hoạt nhầm lúc ban nhạc đang 
+chơi
+Nút "Tạm dừng Auto Audio" nổi bật, 1 click tắt toàn bộ auto-
+rule ngay lập tức
+Audio Engine riêng bị lỗi Không ảnh hưởng luồng Slide/Video chính — tách tiến trình 
+audio giống nguyên tắc Output Process ở Bước 5
+Ducking kích hoạt sai (nhạc tự nhỏ dù không ai 
+nói)
+Có thể tắt ngay bằng 1 nút, không cần vào Settings sâu
+Loudness normalize làm méo tiếng (gain bù quá 
+cao)
+Giới hạn mức bù tối đa (VD +6dB), vượt ngưỡng thì báo cảnh 
+báo thay vì ép chỉnh
+Crossfade giữa 2 bài chênh lệch âm lượng lớn Auto-gain xử lý trước khi crossfade, tránh 1 bài nghe to hẳn 
+giữa đoạn chuyển
+Bước 11 — Song & Bible Editor
+Nâng cấp phần soạn thảo của Song Module và Bible Module (đã có ở Bước 6) để tăng tốc độ chuẩn bị nội dung 
+trước buổi lễ, theo tinh thần FreeShow: dán lời vào là tự tách slide ngay, thao tác tối thiểu.
+11.1 Song Editor
+Giao diện soạn thảo
+┌───────────────────────────────────────────────────────┐
+│  Tến bài: [ Chúa Yếu Con ]   Tone: [G]  CCLI: [____]    │
+├───────────────────────────────────────────────────────┤
+│  QUICK PASTE (dán lời thô, tự tách slide)               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ Verse 1                                          │   │
+│  │ Chúa yếu con từ khi còn bé thơ...                │   │
+│  │                                                    │   │
+│  │ Chorus                                            │   │
+│  │ Ngài luôn ơ X bến, dân dắZt đời con...               │   │
+│  └─────────────────────────────────────────────────┘   │
+│  [ Tự động tách Slide ]                                 │
+├───────────────────────────────────────────────────────┤
+│  SLIDE GROUPS (kéo-tha X sắZp xếZp lại)                      │
+===== PAGE 22 =====
+│  [Verse 1] [Chorus] [Verse 2] [Chorus] ...              │
+│                                                          │
+│  Đang chọn: Chorus                            PREVIEW  │
+│  Ngài luôn ơ X bến, dân dắZt đời con...        ┌──────────┐│
+│  Hợp âm: G   D   Em   C                     │ (render  ││
+│                                              │  giôZng   ││
+│                                              │  output) ││
+│                                              └──────────┘│
+└───────────────────────────────────────────────────────┘
+Tính năng chính
+Tính năng Mô tả
+Quick Paste + Auto-split Dán nguyên lời bài hát (có hoặc không nhãn Verse/Chorus) → tự động tách 
+thành từng slide group
+Nhận diện đoạn lặp lại Nếu Chorus xuất hiện y hệt nhiều lần, hệ thống gợi ý dùng chung 1 nhóm, 
+tránh trùng dữ liệu
+Slide Groups màu-code Mỗi loại đoạn (Verse/Chorus/Bridge/Tag) có màu riêng để dễ nhận diện 
+khi kéo-thả sắp xếp
+Định dạng riêng từng dòng/slide Bold, Italic, Underline, đổi font, cỡ chữ, màu chữ ngay trong ô soạn
+Live Preview Panel bên phải render slide y hệt Output, cập nhật real-time khi gõ
+Chèn hợp âm inline Gõ hợp âm ngay trên dòng lời (dùng cho Stage Display), không cần bảng 
+riêng
+Text Box tùy chỉnh vị trí Kéo khung chữ để đổi vị trí hiển thị riêng cho từng slide nếu cần
+Bổ sung Database schema — Song Editor
+ALTER TABLE song_slides ADD COLUMN text_formatting TEXT;   -- JSON: [{bold, italic, color, 
+fontSize, range}]
+ALTER TABLE song_slides ADD COLUMN text_box_position TEXT; -- JSON: {x, y, w, h}
+ 
+CREATE TABLE song_slide_groups (
+    id INTEGER PRIMARY KEY,
+    song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    group_label TEXT,          -- "Verse 1", "Chorus"
+    group_color TEXT,          -- mã màu hiếXn thị trong editor
+    is_repeatable BOOLEAN DEFAULT 0  -- nhóm dùng lại nhiếgu lâgn (VD Chorus)
+);
+11.2 Bible Editor
+Giao diện soạn thảo / chèn câu Kinh Thánh
+┌───────────────────────────────────────────────────────┐
+│  Tìm: [ Giắng 3:16-18 ]   Ba Xn dịch: [ Ba Xn Truyếgn ThôZng ] │
+├───────────────────────────────────────────────────────┤
+│  KẾZT QUAX (chọn câu đếX thếm vào slide)                   │
+│  [x] 16 Vì Đức Chúa Trời yếu thửơng thếZ gian...         │
+│  [x] 17 Vì Đức Chúa Trời đã sai Con Ngài...             │
+│  [x] 18 Ai tin Ngài thì chắXng bị đoán xét...             │
+├───────────────────────────────────────────────────────┤
+│  TÙY CHỌN HIẾXN THỊ                                      │
+│  ( ) Môi câu 1 slide riếng                              │
+│  (o) Gộp nhiếgu câu / slide (tôZi đa 2 câu)               │
+│  [ ] Hiện thếm ba Xn dịch song song (VD: NIV)             │
+├───────────────────────────────────────────────────────┤
+===== PAGE 23 =====
+│  PREVIEW                                                │
+│  Giắng 3:16                                             │
+│  "Vì Đức Chúa Trời yếu thửơng thếZ gian,                 │
+│   đếZn nôi đã ban Con Một..."                            │
+└───────────────────────────────────────────────────────┘
+Tính năng chính
+Tính năng Mô tả
+Auto-range Nhập "Giăng 3:16-18" tự động lấy đủ 3 câu, không cần thêm tay từng 
+câu
+Tick chọn câu cụ thể Có thể bỏ bớt câu không cần trong khoảng đã tìm
+Gộp câu / slide tùy chỉnh Chọn hiển thị 1 câu/slide hay gộp 2-3 câu chung 1 slide
+Đa bản dịch song song Hiện 2 bản dịch cùng lúc trên 1 slide, phục vụ hội thánh song ngữ
+Lưu làm "Reading" tái sử dụng Lưu đoạn Kinh Thánh đã chọn thành mục tái dùng ở buổi lễ khác
+Định dạng riêng Chỉnh font, cỡ, màu cho từng slide Kinh Thánh giống Song Editor
+Bổ sung Database schema — Bible Editor
+CREATE TABLE bible_readings (
+    id INTEGER PRIMARY KEY,
+    title TEXT,                 -- "Giắng 3:16-18 (Chúa Nhật Phục Sinh)"
+    version_id INTEGER REFERENCES bible_versions(id),
+    verse_refs TEXT,            -- JSON: [{book, chapter, verse}, ...]
+    verses_per_slide INTEGER DEFAULT 1,
+    show_dual_version BOOLEAN DEFAULT 0,
+    dual_version_id INTEGER REFERENCES bible_versions(id)
+);
+11.3 Nguyên tắc chung áp dụng cho cả 2 Editor
+• Auto-save khi soạn: không cần bấm Lưu thủ công, tránh mất dữ liệu khi soạn giữa lúc bận
+• Undo/Redo đầy đủ: Ctrl+Z/Ctrl+Y hoạt động trong toàn bộ quá trình soạn
+• Preview luôn khớp Output thật: dùng chung Template/Render Engine ở Bước 5, tránh tình trạng trên editor 
+đẹp nhưng ra output khác
+Bước 12 — Công cụ định dạng văn bản (Text Formatting Toolbar)
+Thanh công cụ chỉnh sửa văn bản bên trong 1 slide — cỡ chữ, căn lề, font, màu, viền, bóng đổ — dùng chung cho 
+cả Song Editor và Bible Editor ở Bước 11, giống thanh toolbar định dạng text của FreeShow/ProPresenter.
+12.1 Thanh công cụ định dạng
+┌────────────────────────────────────────────────────────────────┐
+│ Font: [Montserrat]  Size: [64px]  [B] [I] [U] [S]  Màu: [■]      │
+│ Cắn lếg ngang: [Trái] [Giữa] [Pha Xi] [Đếgu]                         │
+│ Cắn lếg dọc:   [Trến] [Giữa] [Dửới]                                │
+│ Dãn dòng: [1.2]   Dãn chữ (letter-spacing): [0px]                 │
+│ Viếgn chữ (outline): [ ]  Bóng đôX (shadow): [ ]  Độ mờ: [100%]     │
+└────────────────────────────────────────────────────────────────┘
+===== PAGE 24 =====
+12.2 Chi tiết từng nhóm công cụ
+Nhóm Tùy chọn cụ thể
+Font & Kiểu chữ Font family (font máy + font đi kèm app), cỡ chữ (px hoặc auto-fit), 
+Bold/Italic/Underline/Strikethrough
+Màu sắc Màu chữ, màu nền chữ (highlight), gradient 2 màu cho tiêu đề
+Căn lề ngang Trái / Giữa / Phải / Đều 2 bên (justify)
+Căn lề dọc Trên / Giữa / Dưới khung văn bản
+Dãn dòng (line-height) Điều chỉnh khoảng cách giữa các dòng lời
+Dãn chữ (letter-spacing) Tăng/giảm khoảng cách giữa ký tự
+Auto-fit / Auto-shrink Tự động thu nhỏ cỡ chữ nếu văn bản dài tràn khung
+Viền chữ (outline/stroke) Viền quanh chữ để chữ nổi rõ trên nền sáng/phức tạp
+Bóng đổ (drop shadow) Tăng tương phản chữ với nền, chỉnh độ mờ/độ lệch/độ blur
+Độ mờ toàn khối chữ (opacity) Làm mờ nhẹ chữ nếu cần hòa với nền
+12.3 Khung văn bản (Text Box) — vị trí & kích thước
+┌─────────────────────────────────────┐
+│  ┌───────────────┐                  │   kéo góc đếX đôXi kích thửớc
+│  │  Lời bài hát   │                  │   kéo giữa khung đếX đôXi vị trí
+│  └───────────────┘                  │
+└─────────────────────────────────────┘
+• Kéo-thả trực tiếp trên khung preview để đổi vị trí/kích thước (giống PowerPoint)
+• Nhập số chính xác (X, Y, Width, Height) cho ai cần độ chính xác pixel
+• Áp dụng cho 1 slide hoặc toàn bộ bài hát — nút "Áp dụng cho tất cả slide cùng loại" (VD chỉnh 1 Verse, áp 
+cho mọi Verse)
+12.4 Style Preset — áp dụng nhanh
+Preset Mô tả
+Lưu định dạng hiện tại thành Preset Đặt tên, ví dụ "Chữ to - viền đen"
+Áp Preset cho slide khác Click 1 phát, không cần chỉnh lại từng thuộc tính
+Preset mặc định của Template Khi tạo bài hát mới, tự dùng định dạng chuẩn của Template đang 
+chọn
+12.5 Bổ sung Database schema
+CREATE TABLE text_styles (
+    id INTEGER PRIMARY KEY,
+    name TEXT,                     -- tến preset, VD "Chữ to - viếgn đen"
+    font_family TEXT,
+    font_size INTEGER,
+    bold BOOLEAN DEFAULT 0,
+    italic BOOLEAN DEFAULT 0,
+    underline BOOLEAN DEFAULT 0,
+===== PAGE 25 =====
+    text_color TEXT,
+    align_horizontal TEXT,          -- 'left', 'center', 'right', 'justify'
+    align_vertical TEXT,            -- 'top', 'middle', 'bottom'
+    line_height REAL DEFAULT 1.2,
+    letter_spacing REAL DEFAULT 0,
+    auto_fit BOOLEAN DEFAULT 1,
+    outline_enabled BOOLEAN DEFAULT 0,
+    outline_color TEXT,
+    outline_width REAL,
+    shadow_enabled BOOLEAN DEFAULT 0,
+    shadow_offset_x REAL,
+    shadow_offset_y REAL,
+    shadow_blur REAL,
+    opacity REAL DEFAULT 1.0
+);
+ 
+-- GắZn style vào từng slide (override riếng, khác style mặc định cu Xa Template)
+ALTER TABLE song_slides ADD COLUMN style_id INTEGER REFERENCES text_styles(id);
+ALTER TABLE song_slides ADD COLUMN text_box_x REAL;
+ALTER TABLE song_slides ADD COLUMN text_box_y REAL;
+ALTER TABLE song_slides ADD COLUMN text_box_width REAL;
+ALTER TABLE song_slides ADD COLUMN text_box_height REAL;
+ 
+-- Áp dụng cùng cơ chếZ định dạng cho slide Kinh Thánh (khớp với Bible Editor ơ X Bửớc 11.2,
+-- vôZn cho phép "chỉ Xnh font, cỡ, màu cho từng slide Kinh Thánh giôZng Song Editor")
+ALTER TABLE bible_readings ADD COLUMN style_id INTEGER REFERENCES text_styles(id);
+ALTER TABLE bible_readings ADD COLUMN text_box_x REAL;
+ALTER TABLE bible_readings ADD COLUMN text_box_y REAL;
+ALTER TABLE bible_readings ADD COLUMN text_box_width REAL;
+ALTER TABLE bible_readings ADD COLUMN text_box_height REAL;
+12.6 Nguyên tắc UX quan trọng
+• Preview cập nhật tức thời (real-time) khi kéo thanh trượt cỡ chữ hay đổi màu — không cần bấm Áp dụng 
+mới thấy
+• Auto-fit bật mặc định để tránh lỗi chữ tràn khung khi người mới dùng chưa quen chỉnh tay
+• Không format nào phá layout toàn cục — chỉnh 1 slide không tự động ảnh hưởng slide khác trừ khi bấm Áp 
+dụng cho tất cả
+Ghi chú: text_styles và text_box dùng chung 1 cơ chế cho cả Song và Bible slide, đảm bảo Bước 11 (Editor) và Bước 12 
+(Formatting Toolbar) luôn khớp nhau về khả năng định dạng.
+Bước 13 — Tính năng nâng cao (Overlays, Templates, Calendar, 
+Typography, PiP, Functions)
+Nhóm 6 tính năng nâng cao giúp phần mềm đạt cảm giác chuyên nghiệp ngang tầm FreeShow/ProPresenter.
+13.1 Overlays
+Lớp hiển thị độc lập với Slide chính, luôn nằm trên cùng, bật/tắt không ảnh hưởng luồng trình chiếu — khác với 
+Template (Template là nền/kiểu của 1 slide, Overlay là lớp phủ toàn cục).
+┌─────────────────────────────────────┐
+│  OVERLAYS                            │
+│  [x] Logo hội thánh (góc trến pha Xi)  │
+│  [ ] Countdown giờ bắZt đâgu            │
+│  [ ] Banner thông báo khâXn            │
+│  [ ] Dòng chữ chạy (ticker)           │
+===== PAGE 26 =====
+│  [ ] Watermark Livestream             │
+└─────────────────────────────────────┘
+Loại Overlay Công dụng
+Logo/Watermark Hiện cố định 1 góc, dùng cho cả buổi lễ và livestream
+Countdown Đếm ngược giờ bắt đầu lễ, hiện trước khi chương trình chính thức chạy
+Banner/Alert Thông báo khẩn cấp — bật tắt nhanh bằng phím tắt
+Ticker (chữ chạy) Thông báo dạng chữ chạy ngang dưới màn hình, không che nội dung chính
+Lower-third Tên diễn giả/chủ đề bài giảng hiện góc dưới, giống chương trình truyền hình
+CREATE TABLE overlays (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    overlay_type TEXT,        -- 'logo', 'countdown', 'banner', 'ticker', 'lower_third'
+    content TEXT,              -- text/đửờng dân a Xnh
+    position TEXT,             -- JSON {x, y, w, h}
+    is_active BOOLEAN DEFAULT 0,
+    z_index INTEGER DEFAULT 100
+);
+13.2 Templates (mở rộng so với Bước 3)
+Nâng từ template gắn nền + font thành thư viện Template đầy đủ, phân loại rõ và preview trước khi áp dụng.
+┌───────────────────────────────────┐
+│  THƯ VIỆN TEMPLATE                  │
+│  [Lyric chuâXn] [Giáng Sinh] [Phục Sinh] │
+│  [Kinh Thánh]  [Thông báo]  [+ Mới]  │
+└───────────────────────────────────┘
+Tính năng Mô tả
+Phân loại Template theo mùa/lễ Giáng Sinh, Phục Sinh, Thường niên — dễ tìm đúng mùa
+Preview trước khi áp dụng Xem trước cả nền + font + vị trí chữ, không cần áp thử vào 
+slide thật
+Import/Export Template Chia sẻ Template giữa các máy hoặc giữa các hội thánh dùng 
+chung
+Gán Template mặc định theo loại nội dung VD: Kinh Thánh luôn dùng Template chuẩn trừ khi đổi tay
+13.3 Calendar
+Gắn Playlist/Service Template với lịch buổi lễ, giải quyết bài toán tuần nào dùng playlist nào.
+┌──────────────────────────────────┐
+│   Tháng 7/2026                    │
+│  CN   T2  T3  T4  T5  T6  T7      │
+│  ...                               │
+│  [26] Chúa Nhật (có Playlist)      │
+│         "CN 26/7 - Thờ phửợng"     │
+└──────────────────────────────────┘
+===== PAGE 27 =====
+Tính năng Mô tả
+Gắn Playlist theo ngày Mỗi Chúa Nhật/sự kiện gắn sẵn 1 Playlist, mở app tự load đúng ngày
+Sự kiện lặp lại Tự tạo khung Playlist trống mỗi Chúa Nhật, chỉ cần điền nội dung
+Đồng bộ Google Calendar (tùy chọn) Kéo lịch sự kiện đặc biệt từ Google Calendar hội thánh
+Nhắc lịch chuẩn bị Cảnh báo trước 1-2 ngày nếu Playlist Chúa Nhật sắp tới chưa soạn
+CREATE TABLE calendar_events (
+    id INTEGER PRIMARY KEY,
+    event_date DATE,
+    title TEXT,
+    playlist_id INTEGER REFERENCES playlists(id),
+    is_recurring BOOLEAN DEFAULT 0,
+    recurrence_rule TEXT       -- VD 'WEEKLY:SUNDAY'
+);
+13.4 Typography
+Quản lý font tập trung, đảm bảo đồng bộ hình ảnh chữ xuyên suốt mọi Template.
+Tính năng Mô tả
+Thư viện Font tích hợp Đóng gói sẵn vài bộ font tiếng Việt có dấu đẹp, tránh lỗi thiếu font khi 
+đổi máy
+Google Fonts integration Tải thêm font online khi cần, cache lại để dùng offline sau đó
+Font Pairing gợi ý Gợi ý cặp font tiêu đề + nội dung hài hòa
+Kiểm tra dấu tiếng Việt Cảnh báo nếu font không hỗ trợ đầy đủ dấu tiếng Việt
+13.5 Picture-in-Picture (PiP)
+Hiện 1 khung hình nhỏ đè lên góc màn hình chính — dùng cho camera phụ, người phiên dịch ngôn ngữ ký hiệu, 
+hoặc feed từ nguồn khác.
+┌─────────────────────────────────┐
+│  Lời bài hát chính                │
+│                                    │
+│                          ┌──────┐  │
+│                          │ PiP  │  │  Camera phiến dịch/góc phụ
+│                          │Camera│  │
+│                          └──────┘  │
+└─────────────────────────────────┘
+Tính năng Mô tả
+Nguồn PiP Webcam, capture card (HDMI in), hoặc video file
+Vị trí/kích thước tùy chỉnh Kéo-thả góc hiển thị, resize giống Text Box ở Bước 12
+Bật/tắt theo Playlist item VD chỉ hiện PiP phiên dịch trong phần giảng, tắt lúc hát
+Khung viền/bo góc Tùy chỉnh style khung PiP cho đẹp mắt trên livestream
+CREATE TABLE pip_sources (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+===== PAGE 28 =====
+    source_type TEXT,          -- 'webcam', 'capture_card', 'video_file'
+    device_id TEXT,
+    position TEXT,              -- JSON {x, y, w, h}
+    border_style TEXT,
+    is_active BOOLEAN DEFAULT 0
+);
+13.6 Functions (Macro/Automation)
+Cho phép gộp nhiều hành động thành 1 nút bấm/phím tắt, giống Macro trong OBS hay Stream Deck.
+┌───────────────────────────────────────┐
+│  FUNCTIONS (Macro)                      │
+│  [BắZt đâgu Thờ Phửợng]                   │
+│    -> ChuyếXn OBS Scene "Camera+Lyric"   │
+│    -> Fade-out nhạc nếgn                  │
+│    -> Bật Overlay Logo                   │
+│    -> Unmute Mic Ca đoàn                 │
+│                                          │
+│  [KếZt thúc buôXi lế]                     │
+│    -> Clear Output                        │
+│    -> Dừng Stream OBS                     │
+│    -> Phát nhạc "Nhạc kếZt lế"             │
+└───────────────────────────────────────┘
+Tính năng Mô tả
+Gộp nhiều hành động 1 Function = chuỗi nhiều lệnh (chuyển slide, đổi OBS scene, chỉnh 
+audio, bật overlay...)
+Gán phím tắt/nút riêng Mỗi Function gán 1 phím tắt hoặc nút bấm riêng trên Program 
+Window
+Kích hoạt từ Remote/MIDI (nâng cao) Trigger Function từ Remote Control hoặc thiết bị MIDI/Stream Deck 
+ngoài
+Xem trước hành động trước khi lưu Liệt kê rõ từng bước trong Function để tránh nhầm lẫn khi tạo
+CREATE TABLE functions (
+    id INTEGER PRIMARY KEY,
+    name TEXT,                 -- "BắZt đâgu Thờ Phửợng"
+    shortcut_key TEXT,
+    actions TEXT                -- JSON: [{type: 'obs_scene', value: 'Camera+Lyric'}, {type: 
+'audio_fade_out'}, ...]
+);
+Ghi chú: Failsafe cho Functions: nếu 1 bước trong chuỗi lệnh thất bại (VD OBS mất kết nối), các bước còn lại không phụ 
+thuộc OBS vẫn chạy tiếp, không dừng cả chuỗi — kèm log báo bước nào lỗi.
+Bước 14 — Bảng phím tắt chuyên nghiệp
+Bộ phím tắt đầy đủ theo chuẩn phần mềm broadcast (ProPresenter, OBS, Premiere), giúp thao tác vận hành 
+nhanh và chuyên nghiệp, gần như không cần chạm chuột khi live.
+14.1 Nguyên tắc đặt phím tắt
+• Nhất quán với chuẩn ngành: Ctrl/Cmd cho hành động quản lý, phím đơn (Space, mũi tên) cho hành động 
+vận hành trực tiếp
+• Không đè phím hệ thống (tránh Ctrl+Alt+Delete, Ctrl+W...)
+===== PAGE 29 =====
+• Cho phép tùy chỉnh lại: toàn bộ bảng chỉ là mặc định, vào Settings đổi được
+14.2 Phím vận hành trực tiếp (không cần Ctrl)
+Phím Hành động
+Space / → Slide tiếp theo
+← Slide trước
+↑ / ↓ Nhảy giữa các item trong Playlist
+Esc Clear/Blank Output ngay lập tức
+Enter Đẩy slide đang chọn ra Output (Go Live)
+0-9 Nhảy nhanh tới slide theo số thứ tự
+Tab Chuyển focus giữa Library / Playlist / Preview
+14.3 Phím tắt Ctrl (quản lý & thao tác nhanh)
+Phím tắt Hành động
+Ctrl+N Tạo bài hát mới
+Ctrl+Shift+N Tạo Playlist mới
+Ctrl+F Tìm kiếm nhanh (bài hát/Kinh Thánh/media) — chèn ngay giữa buổi lễ
+Ctrl+S Lưu (dù có auto-save, vẫn giữ để yên tâm)
+Ctrl+Z / Ctrl+Y Undo / Redo
+Ctrl+D Nhân bản (duplicate) slide/item đang chọn
+Ctrl+E Mở Editor cho item đang chọn
+Ctrl+B Bật/tắt hiển thị Stage Display
+Ctrl+, Mở Settings
+Ctrl+P Mở panel chọn Output/Projector
+14.4 Phím tắt cho Editor & Định dạng (Bước 11-12)
+Phím tắt Hành động
+Ctrl+B (trong ô soạn text) In đậm
+Ctrl+I In nghiêng
+Ctrl+U Gạch chân
+Ctrl+Shift+C Căn giữa
+Ctrl+Shift+L / Ctrl+Shift+R Căn trái / Căn phải
+Ctrl+] / Ctrl+[ Tăng / giảm cỡ chữ
+===== PAGE 30 =====
+Phím tắt Hành động
+Ctrl+Shift+V Dán không định dạng (paste as plain text)
+Ctrl+G Nhóm slide thành Slide Group
+Ghi chú: Ctrl+B dùng 2 nghĩa khác nhau tùy ngữ cảnh (Stage Display khi ở màn hình chính, Bold khi đang ở trong ô soạn 
+text) — engine cần phân biệt theo focus đang ở đâu, tránh xung đột.
+14.5 Phím tắt cho OBS, Audio, Overlays, Functions (Bước 9-13)
+Phím tắt Hành động
+Ctrl+1 đến Ctrl+9 Chuyển nhanh OBS Scene theo thứ tự danh sách
+Ctrl+Shift+S Start/Stop Stream OBS
+Ctrl+Shift+R Start/Stop Record OBS
+Ctrl+M Mute/Unmute Mic chính (mic đang đánh dấu ưu tiên)
+Ctrl+Shift+M Mute toàn bộ Audio Mixer (mic + nhạc + OBS) — Panic Mute
+Ctrl+Space Play/Pause Audio Player
+Ctrl+Shift+F Fade-out nhạc nền ngay lập tức
+Ctrl+Shift+A Tắt/Mở ngay đường tiếng ra loa phòng (Room Speaker Output), không 
+ảnh hưởng đường gửi lên OBS/Livestream
+Ctrl+Shift+O Bật/tắt nhanh Overlay đang chọn (VD Banner khẩn)
+Ctrl+Shift+Alt+1 đến 9 Kích hoạt Function/Macro theo số thứ tự đã gán
+Phím tắt Tác động đến Kiểu tắt
+Ctrl+M Mic chính Tắt/mở ngay (mic)
+Ctrl+Shift+M Toàn bộ Audio Mixer Tắt/mở ngay — Panic Mute
+Ctrl+Shift+F Nhạc nền (Audio Player) Fade-out từ từ, không cắt 
+đột ngột
+Ctrl+Space Nhạc nền (Audio Player) Play/Pause — dừng hẳn phát 
+nhạc
+Ctrl+Shift+A Đường loa phòng (Room Output) Tắt/mở ngay, tách riêng khỏi 
+đường Livestream
+14.6 Phím tắt chuyển nhanh giữa các Module/Tab
+Phím tắt Chuyển đến Module
+Ctrl+Alt+1 Song (Bài hát)
+Ctrl+Alt+2 Bible (Kinh Thánh)
+Ctrl+Alt+3 Media (Video/Ảnh nền)
+Ctrl+Alt+4 Audio Player (Danh sách phát nhạc)
+===== PAGE 31 =====
+Phím tắt Chuyển đến Module
+Ctrl+Alt+5 Overlays
+Ctrl+Alt+6 Templates
+Ctrl+Alt+7 Calendar
+Ctrl+Alt+8 Stage Display (quản lý màn hình/layout)
+Ctrl+Alt+9 Functions (Macro)
+Ctrl+Alt+0 Playlist / Order of Service (màn hình chính)
+Ctrl+Tab Chuyển sang Tab/Module kế tiếp
+Ctrl+Shift+Tab Chuyển về Tab/Module trước đó
+Ghi chú: Nhóm phím tắt tách rõ theo tổ hợp để không đè nhau: Chuyển Module/Tab dùng Ctrl+Alt+Số; Kích hoạt 
+Function/Macro dùng Ctrl+Shift+Alt+Số.
+14.7 Phím tắt điều hướng khi trình chiếu Kinh Thánh
+Phím tắt Hành động Khác gì với phím thường
+→ (khi đang ở Bible) Slide tiếp theo trong phạm vi đã chọn Giới hạn trong đoạn đã soạn 
+sẵn
+Ctrl+→ Câu Kinh Thánh kế tiếp trong toàn sách Mở rộng ra ngoài phạm vi đã 
+chọn
+Ctrl+← Câu Kinh Thánh trước đó trong toàn 
+sách
+Tương tự, lùi về câu trước
+Ctrl+Shift+→ / ← Nhảy sang chương tiếp theo/trước đó Dùng khi chuyển hẳn sang 
+đoạn Kinh Thánh khác
+Ghi chú: Khi dùng Ctrl+→/← để đọc vượt ra ngoài đoạn đã soạn sẵn, hệ thống tự động tạo slide tạm thời theo Template 
+Kinh Thánh mặc định đang dùng — không cần dừng lại để soạn tay giữa lúc live.
+14.8 Bảng "Xem toàn bộ phím tắt" trong app
+Màn hình tra cứu nhanh, mở bằng Ctrl+/ hoặc F1, tìm được theo từ khóa, và in ra được (PDF cheat-sheet) để 
+dán cạnh máy vận hành cho tình nguyện viên mới.
+14.9 Bổ sung Database schema
+CREATE TABLE keyboard_shortcuts (
+    id INTEGER PRIMARY KEY,
+    action_id TEXT NOT NULL,        -- 'next_slide', 'toggle_stage_display', 
+'bible_next_verse', ...
+    default_combo TEXT,             -- 'Space', 'Ctrl+F', 'Ctrl+Right', ...
+    custom_combo TEXT,              -- override do ngửời dùng tự đôXi
+    context TEXT                    -- 'global', 'editor', 'obs', 'audio', 'bible', 
+'module_nav', 'function_trigger'
+);
+===== PAGE 32 =====
+14.10 Failsafe
+Tình huống Xử lý
+Người dùng gán trùng 2 hành động cùng 1 phím Cảnh báo ngay khi lưu trong Settings, không cho lưu đè âm 
+thầm
+Phím tắt trùng với phím hệ điều hành Cảnh báo phím này có thể bị hệ điều hành chặn khi người 
+dùng tự đổi
+Esc (Clear Output) bấm nhầm giữa buổi lễ Tùy chọn bật giữ phím 0.5s mới clear — tắt mặc định vì ưu 
+tiên tốc độ, bật được ở Settings
+Bấm Ctrl+Shift+A nhưng quên đã tắt loa phòng Icon loa hiện trạng thái tắt màu đỏ rõ ràng ở góc Program 
+Window, tránh quên bật lại đầu giờ lễ tiếp theo
+Tắt loa phòng nhưng vẫn đang livestream Không ảnh hưởng vì route riêng đường Stream Output đã tách 
+từ Bước 10
+Bước 15 — Tra cứu Hebrew/Hy Lạp chuyên sâu
+Nâng Bible Module từ chỉ hiển thị câu thành công cụ nghiên cứu nguyên ngữ, phục vụ mục sư/người giảng 
+chuẩn bị bài giảng sâu — giống theWord.
+15.1 Panel Tra cứu nguyên ngữ
+┌───────────────────────────────────────────────────┐
+│  Giắng 3:16 — Ba Xn gôZc Hy Lạp (Textus Receptus/NA28) │
+├───────────────────────────────────────────────────┤
+│  Houtos  gar  egapesen  ho  theos  ton  kosmon      │
+│  [G3779] [G1063] [G25]  [G3588][G2316]...           │
+├───────────────────────────────────────────────────┤
+│  Đang chọn: egapesen (Strong: G25 - agapao)          │
+│  - Từ điếXn: yếu, yếu thửơng (agape - tình yếu vô     │
+│    điếgu kiện, khác eros/philia)                      │
+│  - Từ loại: Động từ, Indicative Aorist Active, 3rd    │
+│    person singular                                    │
+│  - XuâZt hiện: 143 lâgn trong Tân Ước                   │
+│  - Các câu khác dùng từ này: [Giắng 3:16] [1Gi 4:8]   │
+└───────────────────────────────────────────────────┘
+15.2 Tính năng chính
+Tính năng Mô tả
+Interlinear (đối chiếu song ngữ) Hiện nguyên văn Hebrew/Hy Lạp xen kẽ với bản dịch, từng từ click 
+được
+Strong's Number Mỗi từ gắn mã Strong (G/H + số), click vào xem định nghĩa từ điển gốc
+Từ điển tích hợp Strong's Concordance, BDAG (Hy Lạp), BDB/HALOT (Hebrew) — tra 
+nghĩa, gốc từ, các dạng biến cách
+Phân tích ngữ pháp (Morphology) Thì, thể, thức, ngôi, số, giống của từ
+Concordance — tìm từ gốc xuất hiện ở 
+đâu
+Click 1 từ Hy Lạp/Hebrew → liệt kê toàn bộ câu Kinh Thánh khác dùng 
+từ gốc đó
+===== PAGE 33 =====
+Tính năng Mô tả
+So sánh nhiều bản dịch Đặt cạnh nhau bản gốc + nhiều bản dịch để đối chiếu cách dịch
+Ghi chú cá nhân (Study Notes) Lưu ghi chú riêng gắn theo từng câu, không hiện ra khi trình chiếu
+Export sang slide trình chiếu Chọn 1 phần phân tích để chèn thành slide phụ trong bài giảng
+15.3 Nguồn dữ liệu cần tích hợp
+• Văn bản gốc: Textus Receptus, Nestle-Aland (NA28) cho Hy Lạp; Westminster Leningrad Codex cho Hebrew 
+— public domain/license mở
+• Từ điển: Strong's Concordance (miễn phí, public domain), mở rộng thêm BDAG/BDB nếu có license phù hợp
+• Đóng gói offline: toàn bộ dữ liệu tra cứu lưu local (SQLite), không cần internet — đúng nguyên tắc offline-
+first
+15.4 Bổ sung Database schema
+CREATE TABLE original_texts (
+    id INTEGER PRIMARY KEY,
+    book TEXT,
+    chapter INTEGER,
+    verse INTEGER,
+    word_order INTEGER,
+    original_word TEXT,        -- từ gôZc Hebrew/Hy Lạp
+    strong_number TEXT,        -- VD 'G25', 'H430'
+    transliteration TEXT       -- phiến âm La-tinh, VD "agapao"
+);
+ 
+CREATE TABLE strong_dictionary (
+    strong_number TEXT PRIMARY KEY,
+    language TEXT,             -- 'hebrew', 'greek'
+    lemma TEXT,                -- dạng gôZc cu Xa từ
+    definition TEXT,
+    morphology_notes TEXT,
+    occurrence_count INTEGER
+);
+ 
+CREATE TABLE word_morphology (
+    id INTEGER PRIMARY KEY,
+    original_text_id INTEGER REFERENCES original_texts(id),
+    part_of_speech TEXT,       -- 'verb', 'noun', 'adjective'...
+    tense TEXT, voice TEXT, mood TEXT,
+    person TEXT, number TEXT, gender TEXT, case_form TEXT
+);
+ 
+CREATE TABLE study_notes (
+    id INTEGER PRIMARY KEY,
+    book TEXT, chapter INTEGER, verse INTEGER,
+    note_text TEXT,
+    created_at DATETIME
+);
+15.5 Nguyên tắc quan trọng — tách khỏi luồng trình chiếu chính
+Ghi chú: Panel tra cứu nguyên ngữ chỉ hiện trong chế độ soạn/nghiên cứu (Bible Editor ở Bước 11), không bao giờ tự động 
+hiện ra Output khi đang live. Chỉ khi người dùng chủ động Export sang slide thì nội dung đó mới thành 1 slide trình chiếu 
+bình thường.
+===== PAGE 34 =====
+15.6 Phân định Free/Pro
+Nhóm tính năng Tier
+Interlinear, Strong's Number, Concordance, Morphology cơ bản 
+(dữ liệu tĩnh, đóng gói offline)
+Free — đóng gói sẵn trong app, không phát sinh 
+chi phí vận hành
+Từ điển học thuật mở rộng có license riêng (VD BDAG/BDB nếu 
+tích hợp bản có bản quyền), AI Dịch thuật theo văn mạch (Bước 
+16)
+Pro — do chi phí license từ điển hoặc chi phí gọi 
+API AI
+Bước 16 — AI Dịch thuật theo nguyên ngữ Cơ Đốc
+AI dịch thuật chuyên biệt cho nguyên ngữ Kinh Thánh (Hebrew, Hy Lạp Koine, Aramaic một phần), giới hạn chặt 
+trong phạm trù thần học/Kinh Thánh, không dùng để dịch nội dung ngoài phạm vi này.
+16.1 Nguyên tắc thiết kế — Giới hạn phạm vi rõ ràng
+• Chỉ hoạt động trong Bible Module: chỉ xuất hiện khi đang tra cứu/soạn nội dung Kinh Thánh
+• Có hàng rào chủ đề (topic guardrail): từ chối/cảnh báo nếu người dùng hỏi ngoài phạm vi Kinh Thánh/thần 
+học Cơ Đốc
+• Không thay thế bản dịch chính thức: luôn hiển thị rõ đây là gợi ý dịch nghĩa hỗ trợ nghiên cứu
+16.2 Panel AI Dịch thuật nguyên ngữ
+┌───────────────────────────────────────────────────┐
+│  AI DỊCH THUẬT NGUYẾN NGỮ — Giắng 3:16               │
+├───────────────────────────────────────────────────┤
+│  Từ gôZc: egapesen (Strong G25)                       │
+│                                                      │
+│  Gợi ý dịch theo vắn mạch:                           │
+│  "yếu thửơng với sự hy sinh, hành động chu X động      │
+│   không đòi ho Xi đáp lại — khác với tình ca Xm bộc      │
+│   phát nhâZt thời"                                    │
+│                                                      │
+│  So sánh cách dịch trong các ba Xn khác:                │
+│  - Ba Xn Truyếgn ThôZng: "yếu thửơng"                    │
+│  - NIV: "loved"                                       │
+│  - Ba Xn diến ý: "yếu đếZn mức hy sinh"                  │
+│                                                      │
+│  [ Ho Xi thếm vếg từ này ]  [ Chèn vào ghi chú ]         │
+└───────────────────────────────────────────────────┘
+16.3 Tính năng chính
+Tính năng Mô tả
+Dịch nghĩa theo văn mạch (contextual) AI phân tích văn mạch câu/đoạn để gợi ý nghĩa sát hơn dịch từng 
+từ máy móc
+Giải thích sắc thái nguyên ngữ VD phân biệt agape/eros/philia trong Hy Lạp, hay các dạng động từ 
+Hebrew ảnh hưởng nghĩa thế nào
+Hỏi-đáp giới hạn chủ đề Chỉ về: từ nguyên Kinh Thánh, ngữ pháp Hebrew/Hy Lạp, bối cảnh 
+lịch sử-văn hóa, so sánh bản dịch
+===== PAGE 35 =====
+Tính năng Mô tả
+Gợi ý bản dịch thay thế Khi từ gốc có nhiều nghĩa, liệt kê các cách dịch khả dĩ kèm lý do ngữ 
+cảnh
+Trích dẫn nguồn học thuật kèm theo Mỗi gợi ý gắn nguồn tham chiếu (Strong's, BDAG, BDB...) đã có ở 
+Bước 15
+16.4 Cơ chế "hàng rào" chủ đề (Topic Guardrail)
+Ngửời dùng ho Xi: "Dịch giúp tôi từ này sang
+ tiếZng Anh đếX soạn hợp đôgng..."
+ 
+AI pha Xn hôgi: "Tính nắng này chỉ X hô trợ dịch
+ thuật trong phạm vi nghiến cứu Kinh Thánh
+ và thâgn học Cơ ĐôZc. Vui lòng dùng công cụ
+ dịch thuật khác cho nội dung ngoài phạm vi
+ này."
+• Áp dụng bằng system prompt cố định giới hạn chủ đề khi gọi AI, kết hợp kiểm tra từ khóa đầu vào có liên 
+quan Kinh Thánh/thần học hay không trước khi gửi
+• Log lại các câu hỏi bị từ chối (ẩn danh) để tinh chỉnh ngưỡng nhận diện theo thời gian, tránh chặn nhầm câu 
+hỏi hợp lệ
+16.5 Vận hành: Online hay Offline?
+Chế độ Mô tả
+Cloud AI (mặc định, cần internet) Gọi API model ngôn ngữ chuyên biệt, độ chính xác cao hơn cho phân 
+tích văn mạch phức tạp
+Offline fallback Khi không có internet, tự động chuyển về chỉ hiển thị dữ liệu tĩnh 
+(Strong's/BDAG) đã có sẵn, ẩn phần Hỏi-đáp AI
+Ghi chú: Giữ đúng nguyên tắc offline-first của toàn hệ thống — tính năng AI là lớp bổ sung tùy chọn, core tra cứu nguyên 
+ngữ vẫn hoạt động không cần mạng.
+16.6 Bổ sung Database schema
+CREATE TABLE ai_translation_queries (
+    id INTEGER PRIMARY KEY,
+    book TEXT, chapter INTEGER, verse INTEGER,
+    original_word TEXT,
+    user_question TEXT,
+    ai_response TEXT,
+    sources_cited TEXT,          -- JSON: ['Strong G25', 'BDAG p.5']
+    was_rejected BOOLEAN DEFAULT 0,  -- true nếZu bị chặn do ngoài phạm vi
+    created_at DATETIME
+);
+ 
+CREATE TABLE ai_config (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,    -- mặc định tắZt, ngửời dùng chu X động bật
+    api_provider TEXT,
+    topic_guardrail_enabled BOOLEAN DEFAULT 1,  -- luôn bật, không cho tắZt
+    offline_fallback_enabled BOOLEAN DEFAULT 1
+);
+===== PAGE 36 =====
+16.7 Failsafe
+Tình huống Xử lý
+AI trả lời sai/không chắc chắn về nguyên ngữ Luôn kèm nhãn Gợi ý tham khảo — không thay thế bản dịch 
+chính thức
+Mất kết nối internet giữa lúc tra cứu Tự chuyển về dữ liệu tĩnh offline, thông báo rõ Chế độ Offline 
+— chỉ tra từ điển tĩnh
+Người dùng cố hỏi lệch chủ đề nhiều lần Không khóa tính năng, chỉ tiếp tục từ chối lịch sự, tránh gây 
+khó chịu nhưng vẫn giữ đúng phạm vi
+Chi phí API tăng do dùng nhiều Cho phép giới hạn số lượt hỏi/ngày trong Settings, cảnh báo 
+khi gần đạt ngưỡng
+Bước 17 — Nhóm tính năng còn thiếu so với ProPresenter
+Các tính năng đặc trưng của ProPresenter phục vụ nhà thờ quy mô lớn, vận hành chuyên nghiệp mức broadcast.
+17.1 Layers System (đa lớp trên 1 slide)
+Thay vì 1 slide chỉ có 1 lớp text + 1 nền như thiết kế ban đầu, mỗi slide có nhiều lớp độc lập, bật/tắt và điều 
+khiển riêng từng lớp.
+┌─────────────────────────────────────┐
+│  SLIDE — qua Xn lý Layers               │
+│  [x] Layer: Background (video/a Xnh)    │
+│  [x] Layer: Lyric Text                │
+│  [ ] Layer: Props (đôgng hôg, khung)     │
+│  [x] Layer: Logo góc                  │
+│  [ ] Layer: Media phụ (video chèn)     │
+│  (kéo-tha X đôXi thứ tự chôgng lớp)        │
+└─────────────────────────────────────┘
+Loại Layer Mô tả
+Background Video/ảnh/màu nền của slide
+Foreground Text chính (lyric, câu Kinh Thánh)
+Media Video/ảnh chèn thêm trong slide (không phải nền)
+Props Đồng hồ, khung trang trí động (xem mục 17.4)
+Audio Âm thanh gắn riêng cho slide này (khác Audio Player toàn cục ở Bước 10)
+ALTER TABLE song_slides ADD COLUMN layers TEXT; -- JSON: [{type, z_index, visible, 
+content_ref, position}]
+17.2 Arrangements (nhiều cách sắp xếp cho cùng 1 bài hát)
+Cùng 1 bài hát nhưng Chúa Nhật này hát Verse 1-Chorus-Verse 2, tuần sau hát khác thứ tự — lưu nhiều 
+Arrangement cho cùng 1 bài, không cần tạo bài hát trùng.
+┌───────────────────────────────────┐
+│  Bài hát: "Chúa Yếu Con"             │
+│  Arrangement: [Mặc định ▾]           │
+│    - Mặc định: V1-C-V2-C-Bridge-C    │
+===== PAGE 37 =====
+│    - NgắZn (lế nhanh): V1-C-C          │
+│    - Giáng Sinh: V1-C-V3-C-Tag        │
+└───────────────────────────────────┘
+CREATE TABLE song_arrangements (
+    id INTEGER PRIMARY KEY,
+    song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    name TEXT,                  -- "Mặc định", "NgắZn (lế nhanh)", "Giáng Sinh"
+    slide_group_order TEXT      -- JSON: ["verse1", "chorus", "verse2", "chorus", "bridge", 
+"chorus"]
+);
+Ghi chú: playlist_items có thể tham chiếu tới 1 arrangement_id cụ thể, mặc định dùng Arrangement 'Mặc định' của bài hát 
+nếu không chỉ định.
+17.3 Redundant/Failover Output (Backup máy tính dự phòng)
+Nhà thờ lớn không được phép để màn hình đen dù chỉ vài giây. Cần 1 máy tính phụ chạy song song, tự động 
+chuyển sang khi máy chính gặp sự cố.
+┌──────────────────┐   Đôgng bộ trạng thái   ┌──────────────────┐
+│   Máy Chính        │ ────liến tục qua LAN──► │   Máy Backup       │
+│   (Primary)         │ ◄───heartbeat 500ms───│   (Standby)         │
+│   -> Output chính    │                       │   -> Output dự phòng│
+└──────────────────┘                        └──────────────────┘
+        │ NếZu Primary mâZt heartbeat > 2s                │
+        └──────────────► Backup tự động lến Output ─────┘
+Tính năng Mô tả
+Đồng bộ trạng thái real-time Máy Backup nhận toàn bộ trạng thái Playlist/Slide hiện tại từ Máy Chính 
+liên tục qua LAN
+Auto-failover Nếu Máy Chính mất heartbeat quá ngưỡng (VD 2 giây), Máy Backup tự 
+động đẩy Output lên thay thế
+Auto-failback (tùy chọn) Khi Máy Chính hoạt động trở lại, có thể tự trả quyền điều khiển hoặc 
+chờ xác nhận tay
+Cảnh báo trạng thái Cả 2 máy hiển thị rõ đang ở vai trò Primary hay Standby, tránh nhầm lẫn 
+thao tác
+CREATE TABLE failover_config (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,
+    role TEXT,                   -- 'primary', 'standby'
+    peer_host TEXT,
+    heartbeat_interval_ms INTEGER DEFAULT 500,
+    failover_threshold_ms INTEGER DEFAULT 2000,
+    auto_failback BOOLEAN DEFAULT 0
+);
+17.4 Props (đồng hồ, hình trang trí động)
+Element trang trí có sẵn (đồng hồ analog/digital, khung viền động) kéo thả vào slide, không cần tự làm video.
+Loại Prop Mô tả
+Đồng hồ Analog/Digital Hiển thị giờ thực, style tùy chỉnh
+Khung viền động (animated border) Trang trí quanh khung chữ hoặc toàn màn hình
+===== PAGE 38 =====
+Loại Prop Mô tả
+Particle/hiệu ứng nhẹ Tuyết rơi (Giáng Sinh), ánh sáng lấp lánh... dùng tiết chế
+CREATE TABLE props_library (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    prop_type TEXT,           -- 'clock', 'border', 'particle'
+    asset_path TEXT,
+    default_position TEXT     -- JSON {x, y, w, h}
+);
+17.5 CCLI SongSelect Reporting tự động
+Tự động ghi log bài hát đã dùng, xuất báo cáo theo chuẩn CCLI để nộp phí bản quyền — bắt buộc về pháp lý với 
+hội thánh lớn dùng nhiều bài hát có bản quyền.
+┌───────────────────────────────────┐
+│  BÁO CÁO CCLI — Quý 3/2026           │
+│  Bài hát đã dùng: 42 bài             │
+│  [XuâZt báo cáo CCLI (.csv/.pdf)]      │
+└───────────────────────────────────┘
+Tính năng Mô tả
+Auto-log khi trình chiếu Mỗi lần 1 bài hát có CCLI number được đẩy ra Output, tự ghi lại 
+ngày/giờ dùng
+Xuất báo cáo định kỳ Xuất file đúng định dạng CCLI SongSelect yêu cầu, theo quý/năm
+Cảnh báo bài hát thiếu CCLI number Nhắc bổ sung thông tin bản quyền khi thêm bài hát mới chưa có mã CCLI
+CREATE TABLE ccli_usage_log (
+    id INTEGER PRIMARY KEY,
+    song_id INTEGER REFERENCES songs(id),
+    used_at DATETIME,
+    service_date DATE
+);
+17.6 Screen Mapping / Multi-projector Edge Blending
+Hội trường lớn dùng nhiều màn hình LED/nhiều máy chiếu ghép lại — cần công cụ căn chỉnh, chồng mép 
+(blending) giữa các nguồn xuất hình.
+┌──────────┬──────────┬──────────┐
+│Projector 1│Projector 2│Projector 3│  <- 1 hình lớn đửợc chia ra 3 nguôgn xuâZt
+│ (trái)    │ (giữa)    │ (pha Xi)    │     vùng chôgng mép đửợc làm mờ dâgn (blend)
+└──────────┴──────────┴──────────┘
+Tính năng Mô tả
+Chia vùng xuất (canvas splitting) 1 canvas lớn logic được chia thành nhiều Output vật lý khớp từng 
+máy chiếu/màn LED
+Edge Blending Làm mờ dần vùng chồng mép giữa 2 máy chiếu cạnh nhau để hình 
+liền mạch
+Warping/hiệu chỉnh méo hình Bù méo hình khi chiếu lên bề mặt cong hoặc góc chiếu lệch
+CREATE TABLE screen_mapping (
+    id INTEGER PRIMARY KEY,
+===== PAGE 39 =====
+    output_config_id INTEGER REFERENCES output_configs(id),
+    canvas_x REAL, canvas_y REAL, canvas_w REAL, canvas_h REAL,
+    blend_left_px INTEGER DEFAULT 0,
+    blend_right_px INTEGER DEFAULT 0,
+    warp_points TEXT           -- JSON: điếXm hiệu chỉ Xnh méo hình
+);
+Ghi chú: Tính năng này chỉ cần thiết khi hội trường dùng từ 2 máy chiếu/màn LED trở lên — với thiết lập 1-2 màn hình thông  
+thường, module này ở trạng thái tắt mặc định.
+17.7 API/Scripting công khai (Remote Trigger từ hệ thống ngoài)
+Cho phép hệ thống khác (lighting console, ChMS - Church Management System) gọi lệnh vào WorshipCast qua 
+API, không chỉ 1 chiều như Remote Control ở Bước 7.
+REST API (local network, có API key):
+  POST /api/v1/slide/next
+  POST /api/v1/slide/goto        { slideId }
+  POST /api/v1/playlist/load     { playlistId }
+  GET  /api/v1/status            -> trạng thái hiện tại
+ 
+WebSocket Event Stream (cho hệ thôZng ngoài lắZng nghe real-time):
+  event: slide_changed  { slideId, timestamp }
+  event: output_cleared { timestamp }
+Tính năng Mô tả
+REST API cơ bản Các lệnh điều khiển chính (next/prev/goto/load playlist) qua HTTP, có 
+xác thực bằng API key
+WebSocket Event Stream Hệ thống ngoài (ChMS, lighting console) lắng nghe sự kiện real-time để 
+tự động phản ứng
+Giới hạn theo LAN + API key Không public ra internet mặc định, giữ nguyên tắc offline-first/bảo mật
+CREATE TABLE api_keys (
+    id INTEGER PRIMARY KEY,
+    key_value TEXT UNIQUE,
+    label TEXT,               -- "Lighting Console", "ChMS Planning Center"
+    permissions TEXT,          -- JSON: ['slide.control', 'playlist.read']
+    created_at DATETIME
+);
+17.8 DMX Lighting Cue Integration
+Nhà thờ lớn thường có hệ thống đèn sân khấu chuyên nghiệp — gắn cue ánh sáng theo Playlist giống cách gắn 
+OBS Scene đã thiết kế ở Bước 9.
+Loại nội dung đang trình chiếu Lighting Cue tự chuyển sang
+Bài hát (lyric) Cue "Ánh sáng thờ phượng" (rực rỡ, động)
+Giảng Cue "Ánh sáng giảng" (tập trung sân khấu chính)
+Blank/Clear Cue "Ánh sáng nghỉ" (dịu, trung tính)
+CREATE TABLE dmx_config (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,
+    dmx_interface TEXT,        -- 'Art-Net', 'sACN'
+    console_ip TEXT
+===== PAGE 40 =====
+);
+ 
+CREATE TABLE dmx_cue_mapping (
+    id INTEGER PRIMARY KEY,
+    content_type TEXT,          -- 'song', 'preaching', 'blank'
+    dmx_cue_number TEXT
+);
+Ghi chú: Giống nguyên tắc auto-switch OBS Scene/Audio Preset — tính năng auto-trigger DMX mặc định TẮT, cần xác nhận 
+cue trước mỗi buổi lễ, tránh ánh sáng đổi sai thời điểm.
+Bước 18 — Nhóm tính năng còn thiếu so với FreeShow
+18.1 Cloud Sync thư viện giữa nhiều máy
+Đồng bộ project (bài hát, playlist, media reference) qua nhiều máy tính — không chỉ remote control mà đồng bộ 
+toàn bộ thư viện làm việc, quan trọng khi có nhiều team dùng nhiều máy khác nhau (team media, team backup).
+Máy A (Team chuâXn bị nội dung) ──┐
+                                  ├──► Cloud Sync Service ──► Máy B (Team vận hành live)
+Máy C (Team backup) ─────────────┘         (theo chu kỳ hoặc khi có thay đôXi)
+Tính năng Mô tả
+Đồng bộ 2 chiều Thay đổi ở bất kỳ máy nào (thêm bài hát, sửa playlist) đồng bộ tới các 
+máy còn lại
+Merge xung đột cơ bản Nếu 2 máy sửa cùng lúc, giữ bản mới nhất + lưu bản cũ vào lịch sử để 
+đối chiếu nếu cần
+Hoạt động cả khi offline Sửa offline vẫn được, tự đồng bộ khi có mạng trở lại — không chặn 
+công việc
+CREATE TABLE sync_config (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,
+    sync_provider TEXT,        -- tến dịch vụ cloud sync
+    last_synced_at DATETIME
+);
+ 
+CREATE TABLE sync_conflict_log (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT, entity_id INTEGER,
+    resolved_version TEXT, discarded_version TEXT,
+    occurred_at DATETIME
+);
+18.2 Companion App cho tín hữu
+Cho phép tín hữu quét QR/mở link xem lời bài hát trên điện thoại riêng — hữu ích cho người khiếm thính cần 
+phụ đề riêng, hoặc hội trường quá lớn nhìn màn hình không rõ.
+┌───────────────────────────────┐
+│  [ QR Code hiếXn thị góc màn    │
+│    hình chính hoặc màn hình    │
+│    chờ đâgu giờ ]                │
+│                                 │
+│  Quét đếX xem lời bài hát trến   │
+│  điện thoại cu Xa bạn             │
+└───────────────────────────────┘
+===== PAGE 41 =====
+Tính năng Mô tả
+Xem lời real-time qua web Trình duyệt điện thoại tự cập nhật lời theo Output chính, không cần 
+cài app riêng
+Chỉ đọc (read-only) Không có quyền điều khiển gì, khác hoàn toàn Remote Control ở Bước 
+7 (dành cho operator)
+Tùy chỉnh cỡ chữ cá nhân Người xem tự phóng to/thu nhỏ chữ trên điện thoại theo nhu cầu, 
+không ảnh hưởng người khác
+Chỉ hoạt động trong LAN hội thánh Đúng nguyên tắc offline-first, không cần đẩy dữ liệu ra internet công 
+cộng
+18.3 Timer/Countdown Timeline cho toàn bộ chương trình
+Không chỉ đếm ngược 1 mục như Stage Display (Bước 6), mà toàn bộ Order of Service có timeline hiển thị còn 
+bao lâu tới hết chương trình, giúp MC/mục sư canh giờ.
+┌─────────────────────────────────────────────────┐
+│  TIMELINE BUỔXI LẾ — TôXng: 90 phút                  │
+│  [Mơ X đâgu 5p][Thờ phửợng 25p][Gia Xng 40p][Đáp ứng 20p]│
+│   ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░  │
+│   Đang ơ X: Thờ phửợng — còn 8 phút                   │
+│   Dự kiếZn kếZt thúc: 10:32 SA                         │
+└─────────────────────────────────────────────────┘
+Tính năng Mô tả
+Gán thời lượng dự kiến cho từng mục 
+Playlist
+Mỗi item trong Order of Service có thời lượng ước tính riêng
+Cảnh báo trễ giờ Nếu 1 mục kéo dài quá thời lượng dự kiến, cảnh báo nhẹ cho 
+operator/MC (không làm phiền hội chúng)
+Hiện trên Stage Display/MC screen MC hoặc mục sư thấy được tiến độ tổng thể, không chỉ 1 đồng hồ 
+đếm ngược đơn lẻ
+ALTER TABLE playlist_items ADD COLUMN estimated_duration_sec INTEGER;
+ALTER TABLE playlist_items ADD COLUMN actual_start_time DATETIME;
+18.4 Action/Trigger từ MIDI hoặc thiết bị vật lý
+Chi tiết hóa phần đã nhắc ở Functions (Bước 13) thành module riêng cho thiết bị điều khiển vật lý — MIDI 
+controller, Stream Deck, bàn phím rời chuyên dụng.
+Loại thiết bị Cách hoạt động
+MIDI Controller Mỗi nút/fader MIDI gán vào 1 Action (next slide, đổi OBS scene, chỉnh 
+volume...)
+Stream Deck (hoặc tương tự) Mỗi phím vật lý hiển thị icon + gán 1 Function/Action, đổi icon theo 
+trạng thái (VD đổi màu khi đang live)
+Bàn phím rời/Bàn điều khiển chuyên 
+dụng
+Nhận input như bàn phím thường nhưng ánh xạ phím riêng, không cần 
+đổi Shortcut hệ thống
+CREATE TABLE physical_device_bindings (
+    id INTEGER PRIMARY KEY,
+===== PAGE 42 =====
+    device_type TEXT,          -- 'midi', 'stream_deck', 'custom_keyboard'
+    device_input_id TEXT,       -- mã nút/fader/phím trến thiếZt bị
+    action_id TEXT              -- tham chiếZu action_id giôZng ba Xng keyboard_shortcuts (Bửớc 
+14)
+);
+Bước 19 — Nhóm tính năng cấp Enterprise / Nhà thờ lớn
+Nhóm tính năng không có ở cả ProPresenter lẫn FreeShow ở mức độ này, nhưng cần thiết khi WorshipCast phục 
+vụ nhà thờ đa điểm nhóm, nhiều nhân sự, quy mô lớn.
+19.1 Multi-Campus/Multi-Site Sync
+Nhà thờ có nhiều điểm nhóm/chi nhánh — 1 nội dung soạn ở trung tâm, tự động phát đồng bộ hoặc lệch giờ tới 
+các điểm nhóm khác.
+┌─────────────────┐
+│  Campus Trung tâm │── soạn Playlist gôZc
+└─────────────────┘
+        │  đôgng bộ qua Cloud/VPN
+        ├──────────────┬──────────────┐
+        ▼              ▼              ▼
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Campus A     │ │ Campus B     │ │ Campus Online│
+│ (live cùng giờ)│ │ (lệch giờ 2h)│ │ (livestream) │
+└─────────────┘ └─────────────┘ └─────────────┘
+Tính năng Mô tả
+Đồng bộ cùng giờ (Live Sync) Các campus cùng chạy 1 Playlist đồng thời, slide đổi giống nhau real-
+time
+Đồng bộ lệch giờ (Delayed Sync) Campus giờ lễ khác nhau dùng lại đúng nội dung đã soạn, không cần 
+soạn lại
+Tùy biến riêng theo Campus Mỗi campus có thể override 1 số nội dung riêng (VD thông báo riêng 
+từng điểm nhóm)
+CREATE TABLE campuses (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    sync_mode TEXT,             -- 'live_sync', 'delayed_sync', 'independent'
+    delay_minutes INTEGER DEFAULT 0
+);
+ 
+CREATE TABLE campus_playlist_overrides (
+    id INTEGER PRIMARY KEY,
+    campus_id INTEGER REFERENCES campuses(id),
+    playlist_id INTEGER REFERENCES playlists(id),
+    override_items TEXT          -- JSON: item nào bị thay đôXi riếng cho campus này
+);
+19.2 Phân quyền người dùng theo vai trò (RBAC)
+Không chỉ Operator/Viewer như ở Remote Control (Bước 7) — cần cấp bậc đầy đủ cho toàn hệ thống, phù hợp 
+đội ngũ nhân sự/tình nguyện viên lớn.
+===== PAGE 43 =====
+Vai trò Quyền hạn
+Admin Toàn quyền: cấu hình hệ thống, quản lý người dùng, tất cả module
+Content Editor Chỉ soạn bài hát/Kinh Thánh/Playlist, không được đẩy ra Output live
+Operator Chỉ vận hành trình chiếu live, không được sửa thư viện/cấu hình hệ thống
+Media Team Quản lý OBS/Audio/Livestream, không truy cập Song/Bible Editor
+Auditor Chỉ xem log/báo cáo, không thao tác được gì trên hệ thống
+CREATE TABLE users (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    email TEXT UNIQUE,
+    role TEXT,                  -- 'admin', 'content_editor', 'operator', 'media_team', 
+'auditor'
+    password_hash TEXT
+);
+ 
+CREATE TABLE role_permissions (
+    id INTEGER PRIMARY KEY,
+    role TEXT,
+    permission_key TEXT          -- 'song.edit', 'output.live', 'obs.control', 
+'settings.manage'
+);
+19.3 Audit Log / Lịch sử thao tác
+Ghi lại ai sửa gì, khi nào — quan trọng khi có nhiều tình nguyện viên/nhân sự cùng dùng hệ thống, cần truy vết 
+khi có sự cố.
+┌─────────────────────────────────────────────┐
+│  AUDIT LOG                                    │
+│  10:32  [Nguyến A]  SửXa bài hát "Chúa Yếu Con" │
+│  10:15  [Trâgn B]    Xóa Overlay "Banner cũ"    │
+│  09:50  [Lế C]      Đắng nhập từ Máy Backup     │
+└─────────────────────────────────────────────┘
+CREATE TABLE audit_log (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    action TEXT,                -- 'edit_song', 'delete_overlay', 'login'
+    entity_type TEXT, entity_id INTEGER,
+    detail TEXT,
+    occurred_at DATETIME
+);
+19.4 Closed Captioning tự động (Accessibility/ADA)
+Phụ đề trực tiếp cho người khiếm thính, đọc giọng nói mục sư qua AI speech-to-text, hiện lên màn hình riêng 
+hoặc gửi lên livestream — nhiều nơi có yêu cầu pháp lý về khả năng tiếp cận với nhà thờ lớn.
+Tính năng Mô tả
+Speech-to-Text real-time AI chuyển giọng nói mục sư thành phụ đề trực tiếp, độ trễ thấp
+Hiện trên Output riêng hoặc kênh phụ Không bắt buộc hiện lên màn hình chính, có thể tách kênh riêng 
+cho người cần
+===== PAGE 44 =====
+Tính năng Mô tả
+Gửi kèm lên Livestream (CEA-608/708 hoặc 
+WebVTT)
+Phụ đề đúng chuẩn cho YouTube/nền tảng stream, tự động bật 
+được cho người xem
+Chỉnh sửa/hiệu đính nhanh khi sai Operator có thể sửa nhanh nếu AI nhận nhầm từ, nhất là tên 
+riêng/thuật ngữ thần học
+CREATE TABLE captioning_config (
+    id INTEGER PRIMARY KEY,
+    enabled BOOLEAN DEFAULT 0,
+    language TEXT DEFAULT 'vi',
+    output_target TEXT,          -- 'separate_display', 'main_output', 'livestream_only'
+    stream_format TEXT           -- 'webvtt', 'cea608'
+);
+ 
+CREATE TABLE caption_log (
+    id INTEGER PRIMARY KEY,
+    service_date DATE,
+    text TEXT,
+    timestamp_ms INTEGER,
+    corrected BOOLEAN DEFAULT 0
+);
+19.5 Analytics Dashboard
+Thống kê: bài hát nào dùng nhiều nhất, thời lượng trung bình buổi lễ, lịch sử dùng Template — hỗ trợ ban lãnh 
+đạo lên kế hoạch.
+Chỉ số thống kê Mô tả
+Bài hát dùng nhiều nhất Xếp hạng theo tần suất trình chiếu, theo khoảng thời gian tùy chọn
+Thời lượng trung bình buổi lễ So sánh thực tế với thời lượng dự kiến (liên kết dữ liệu Timeline ở 
+mục 18.3)
+Template/Overlay được dùng nhiều nhất Giúp tối ưu thư viện, loại bỏ nội dung ít dùng
+Lịch sử dùng CCLI Liên kết trực tiếp với báo cáo CCLI ở mục 17.5
+-- Analytics đửợc tôXng hợp (aggregate) từ các ba Xng log đã có:
+-- ccli_usage_log, audit_log, caption_log, playlist_items.actual_start_time
+-- không câgn ba Xng riếng, chỉ X câgn view/query tôXng hợp định kỳ
+19.6 Cloud Backup tự động + Version History
+Không chỉ backup local (SQLite) mà đẩy lên cloud định kỳ, giữ lịch sử phiên bản để khôi phục khi lỗi hoặc bị ghi 
+đè nhầm.
+Tính năng Mô tả
+Backup tự động định kỳ Đẩy bản sao database lên cloud theo lịch (VD mỗi đêm), không cần 
+thao tác tay
+Version History Giữ nhiều phiên bản theo thời gian, khôi phục về 1 thời điểm cụ thể 
+nếu cần
+Khôi phục chọn lọc Có thể khôi phục riêng 1 phần (VD chỉ Song Library) thay vì toàn bộ hệ 
+thống
+===== PAGE 45 =====
+CREATE TABLE backup_history (
+    id INTEGER PRIMARY KEY,
+    backup_time DATETIME,
+    backup_location TEXT,        -- đửờng dân cloud
+    size_bytes INTEGER,
+    status TEXT                  -- 'success', 'failed'
+);
+19.7 SSO/Đăng nhập tổ chức (Single Sign-On)
+Với đội ngũ nhân sự lớn, đăng nhập bằng tài khoản Google Workspace/Microsoft 365 của tổ chức thay vì tài 
+khoản riêng lẻ.
+Tính năng Mô tả
+Đăng nhập qua OAuth (Google/Microsoft) Không cần tạo tài khoản riêng cho từng tình nguyện viên
+Đồng bộ vai trò từ nhóm tổ chức Gán RBAC (mục 19.2) tự động theo nhóm Google/Microsoft đã có 
+sẵn
+Thu hồi quyền tập trung Khi 1 người rời nhóm phục vụ, vô hiệu hóa quyền truy cập ngay từ 
+hệ thống quản trị tổ chức
+ALTER TABLE users ADD COLUMN sso_provider TEXT;   -- 'google', 'microsoft'
+ALTER TABLE users ADD COLUMN sso_external_id TEXT;
+19.8 Multi-user cùng soạn cùng lúc (Concurrent Editing)
+Nhiều người cùng soạn Playlist cho cùng buổi lễ (VD người soạn nhạc, người soạn thông báo) mà không ghi đè 
+lẫn nhau.
+┌─────────────────────────────────────┐
+│  Playlist "CN 26/7" — đang soạn         │
+│  [Nguyến A đang sửXa: mục Bài hát]        │
+│  [Trâgn B đang sửXa: mục Thông báo]        │
+│  (môi ngửời khóa riếng phâgn đang sửXa,     │
+│   ngửời khác thâZy khóa màu vàng, chỉ X xem) │
+└─────────────────────────────────────┘
+Tính năng Mô tả
+Field-level locking Khóa từng phần nhỏ (1 item playlist) đang được sửa, người khác chỉ 
+xem không sửa đè
+Hiển thị người đang online cùng soạn Thấy rõ ai đang mở cùng Playlist, tránh work trùng lặp
+Giải phóng khóa tự động Nếu 1 người mất kết nối quá lâu, khóa tự giải phóng để người khác 
+tiếp tục
+CREATE TABLE edit_locks (
+    id INTEGER PRIMARY KEY,
+    entity_type TEXT, entity_id INTEGER,
+    locked_by_user_id INTEGER REFERENCES users(id),
+    locked_at DATETIME,
+    expires_at DATETIME          -- tự gia Xi phóng nếZu quá hạn
+);
+===== PAGE 46 =====
+19.9 Failsafe chung cho nhóm Enterprise
+Tình huống Xử lý
+Multi-Campus mất kết nối Cloud/VPN Campus vẫn chạy Playlist đã tải sẵn local, tự đồng bộ lại khi có 
+mạng
+RBAC cấu hình nhầm khóa hết quyền Admin Luôn giữ 1 tài khoản Admin gốc (superadmin) không thể bị 
+khóa qua giao diện thường
+Closed Captioning nhận sai nghiêm trọng Có nút tắt nhanh Caption trên Output nếu AI lỗi nhiều, không 
+bắt buộc luôn bật
+Cloud Backup thất bại nhiều lần liên tiếp Cảnh báo rõ ràng cho Admin, không âm thầm bỏ qua backup
+Xung đột khóa Concurrent Editing (2 người cùng 
+vào 1 lúc)
+Người vào sau nhận thông báo đang được người khác sửa, chỉ 
+được xem
+Bước 20 — Backing Track & AI Auto-Sync Lời
+Gắn nhạc đệm (backing track) trực tiếp vào bài hát và tự động chuyển slide theo nhạc — dùng cho trường hợp 
+không có ban nhạc live (hội thánh nhỏ, nhóm nhỏ, hoặc lúc vắng nhạc công).
+20.1 Backing Track cho Bài hát
+Gắn 1 file nhạc đệm (instrumental/backing track) trực tiếp vào bài hát trong thư viện — khi chọn bài hát để trình 
+chiếu, nhạc đệm có thể tự phát theo.
+┌───────────────────────────────────────────────┐
+│  Tến bài: Chúa Yếu Con                          │
+├───────────────────────────────────────────────┤
+│  BACKING TRACK                                  │
+│  [ Chọn file nhạc đệm ]  "Chua_Yeu_Con.mp3"     │
+│  Thời lửợng: 04:12                              │
+│  ( ) TắZt hắXn — không dùng nhạc đệm               │
+│  (o) Tự phát khi bài hát đửợc đâXy ra Output      │
+│  [ ] Tự động fade-out khi hếZt bài                │
+└───────────────────────────────────────────────┘
+ALTER TABLE songs ADD COLUMN backing_track_id INTEGER REFERENCES audio_tracks(id);
+ALTER TABLE songs ADD COLUMN backing_track_autoplay BOOLEAN DEFAULT 0;
+Ghi chú: Dùng chung bảng audio_tracks đã có ở Bước 10 (Audio Playback Module) — nhạc đệm đi qua Audio Engine, được 
+crossfade/route riêng phòng-livestream y hệt nhạc nền thông thường.
+20.2 AI Auto-Sync lời theo nhạc (Karaoke Mode)
+Nâng cấp backing track ở mục 20.1 thành công cụ thay thế người bấm slide, tự động chuyển lời đúng nhịp bài 
+hát.
+Cơ chế hoạt động — 2 lớp
+BƯỚC CHUÂXN BỊ (làm 1 lâgn/bài hát, không pha Xi lúc live)
+ 
+Cách A - Tap-to-Sync (khuyến dùng, chính xác nhâZt)
+Nghe thửX backing track, bâZm phím Space đúng lúc đôXi
+câu -> hệ thôZng tự ghi lại timestamp cho từng slide
+ 
+Cách B - AI Forced Alignment (tự động, câgn hiệu đính)
+===== PAGE 47 =====
+AI phân tích audio + đôZi chiếZu vắn ba Xn lời đã soạn
+-> tự ửớc lửợng timestamp từng câu, ngửời dùng chỉ Xnh
+lại nếZu AI canh sai chô nào
+ 
+────────────────────────────────────────────────
+ 
+LÚC LIVE (không câgn thao tác tay)
+Backing track phát -> slide tự đôXi đúng timestamp đã
+lửu -> operator chỉ X câgn bâZm Play, hoặc đếX tự động chạy
+toàn bộ chửơng trình các bài đã gắZn Auto-Sync
+Giao diện thiết lập Auto-Sync
+┌───────────────────────────────────────────────────┐
+│  AUTO-SYNC LỜI — "Chúa Yếu Con"                     │
+├───────────────────────────────────────────────────┤
+│  [────●─────────────]  01:24 / 04:12                │
+│                                                      │
+│  [ BắZt đâgu Tap-to-Sync ]   [ AI tự động canh giờ ]   │
+│                                                      │
+│  Timeline slide:                                    │
+│  |Verse1|--Chorus--|--Verse2--|--Chorus--|--Bridge--|│
+│  0:00   0:22        0:48       1:20       1:52       │
+│  (kéo môZc đếX chỉ Xnh tay nếZu AI/tap canh chửa đúng)     │
+└───────────────────────────────────────────────────┘
+Tính năng Mô tả
+Tap-to-Sync Nghe nhạc, bấm phím theo nhịp thật để ghi timestamp — chính xác vì 
+do người thật canh
+AI Forced Alignment AI đối chiếu waveform audio với văn bản lời đã có sẵn, tự ước lượng 
+thời điểm — nhanh nhưng cần rà lại
+Chỉnh tay mốc thời gian Kéo-thả từng mốc trên timeline nếu chưa khớp hoàn hảo
+Chế độ Bán tự động (Hybrid) Auto-sync chạy nền, nhưng operator vẫn có thể bấm → để đẩy nhanh 
+nếu nhạc lệch thực tế
+Cảnh báo lệch nhịp Nếu audio bị dừng/tua giữa chừng, hệ thống phát hiện lệch và cảnh 
+báo thay vì tiếp tục chạy sai
+CREATE TABLE song_slide_timings (
+    id INTEGER PRIMARY KEY,
+    song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+    slide_id INTEGER REFERENCES song_slides(id),
+    start_time_ms INTEGER,
+    sync_method TEXT           -- 'tap', 'ai_alignment', 'manual_adjusted'
+);
+ 
+ALTER TABLE songs ADD COLUMN auto_sync_enabled BOOLEAN DEFAULT 0;
+ALTER TABLE songs ADD COLUMN auto_sync_mode TEXT DEFAULT 'hybrid'; -- 'full_auto', 'hybrid'
+20.3 Failsafe
+Tình huống Xử lý
+AI canh sai nhiều chỗ Luôn cho phép chỉnh tay từng mốc, không ép dùng nguyên 
+bản AI
+Backing track bị dừng đột ngột giữa bài Auto-Sync tự dừng theo, không tiếp tục nhảy slide ảo khi 
+không có tiếng phát
+===== PAGE 48 =====
+Tình huống Xử lý
+Ca đoàn hát nhanh/chậm hơn bản ghi thực tế Chế độ Hybrid cho phép override tay bất kỳ lúc nào bằng phím 
+mũi tên, không khóa cứng vào timeline
+Chưa thiết lập Auto-Sync cho bài hát Mặc định fallback về vận hành tay bình thường như các bài 
+hát khác
+Bước 21 — Tích hợp Canva & Xóa nền AI
+Tích hợp Canva qua API chính thức để lấy nội dung đúng quyền tài khoản người dùng, kèm công cụ AI xóa nền 
+độc lập áp dụng cho mọi ảnh trong Media Module.
+Ghi chú: Phạm vi không bao gồm việc xóa watermark Canva của tài khoản miễn phí — đó là giới hạn hợp lệ của gói Canva 
+chưa trả phí, không phù hợp để thiết kế cách lách qua. Thay vào đó, tích hợp chỉ lấy nội dung đúng quyền tài khoản (Free 
+hoặc Pro) của người dùng.
+21.1 Nhập nội dung từ Canva (Canva Connect API)
+┌───────────────────────────────────────────┐
+│  IMPORT TỪ CANVA                            │
+│  [ Đắng nhập tài khoa Xn Canva ]              │
+│  -> Chọn thiếZt kếZ trong thử viện Canva cu Xa bạn│
+│  -> Chọn độ phân gia Xi xuâZt (theo quyếgn tài    │
+│    khoa Xn: Free hoặc Pro)                     │
+│  [ Nhập vào Media Library WorshipCast ]      │
+└───────────────────────────────────────────┘
+Tính năng Mô tả
+Đăng nhập OAuth Canva Dùng chuẩn Canva Connect API, không lưu mật khẩu Canva trong 
+WorshipCast
+Duyệt thiết kế trực tiếp Xem thư viện Canva ngay trong WorshipCast, không cần export thủ 
+công rồi upload lại
+Xuất đúng độ phân giải tài khoản cho 
+phép
+Độ phân giải cao nhất mà quyền tài khoản Canva của người dùng 
+được xuất — hệ thống không tự ý nâng vượt quyền
+Đồng bộ khi thiết kế Canva cập nhật Tùy chọn tự tải lại bản mới nếu thiết kế gốc trên Canva bị chỉnh sửa
+CREATE TABLE canva_imports (
+    id INTEGER PRIMARY KEY,
+    canva_design_id TEXT,
+    media_asset_id INTEGER REFERENCES media_assets(id),
+    imported_resolution TEXT,
+    last_synced_at DATETIME
+);
+21.2 Xóa nền ảnh (Background Removal) — công cụ AI độc lập
+Không giới hạn riêng cho ảnh từ Canva — áp dụng cho mọi ảnh import vào Media Module (Bước 6), hữu ích khi 
+cần ảnh trong suốt để chồng lên nền động khác.
+┌───────────────────────────────────┐
+│  AXnh gôZc         ->    Đã xóa nếgn   │
+│  [a Xnh có nếgn]    AI    [chỉ X giữ    │
+│                 ────►   chu X thếX]    │
+===== PAGE 49 =====
+│  [ Xóa nếgn ]  [ Hoàn tác ]          │
+└───────────────────────────────────┘
+Tính năng Mô tả
+Xóa nền tự động (AI segmentation) Tách chủ thể khỏi nền, xuất file PNG nền trong suốt
+Tinh chỉnh viền thủ công Cọ tẩy/khôi phục vùng biên nếu AI tách chưa hoàn hảo (VD tóc, vật 
+thể mờ)
+Áp dụng hàng loạt (batch) Xóa nền nhiều ảnh cùng lúc, hữu ích khi import cả bộ ảnh sự kiện
+Giữ ảnh gốc Không ghi đè file gốc, lưu bản đã xóa nền là file mới, có thể hoàn tác
+ALTER TABLE media_assets ADD COLUMN has_transparent_version BOOLEAN DEFAULT 0;
+ALTER TABLE media_assets ADD COLUMN transparent_file_path TEXT;
+21.3 Nguyên tắc pháp lý & đạo đức
+• Chỉ dùng dữ liệu Canva thông qua quyền truy cập chính thức của tài khoản người dùng, không có cơ chế 
+nào để lách watermark/giới hạn độ phân giải của gói Canva miễn phí
+• Tính năng xóa nền áp dụng cho ảnh người dùng sở hữu/có quyền sử dụng hợp pháp — không phải công cụ 
+để né bản quyền hình ảnh của bên thứ ba
+Bước 22 — Mô hình License & Billing (Open Core)
+Sau khi rà soát toàn bộ 21 bước, một số tính năng (AI, Cloud Sync/Backup, Enterprise) có chi phí vận hành thực 
+tế không thể miễn phí vĩnh viễn ở quy mô lớn. WorshipCast áp dụng mô hình Open Core: lõi trình chiếu mã 
+nguồn mở/miễn phí đầy đủ, các tính năng có chi phí hạ tầng thật tách thành gói trả phí tùy chọn.
+22.1 Nguyên tắc phân tầng
+• Free tier không giới hạn thời gian, không giới hạn số buổi lễ — giữ đúng tinh thần tối ưu cho hội thánh 
+nhỏ/máy yếu đã đặt ra từ Bước 1
+• Chỉ tính phí các tính năng có chi phí hạ tầng thật (API AI, lưu trữ Cloud, server đồng bộ đa điểm) — không 
+tính phí các tính năng chỉ là UI/logic cục bộ
+• Luôn có tùy chọn Bring Your Own Key (BYOK) cho tính năng AI — người dùng tự nhập API key riêng 
+(OpenAI/Anthropic/Canva...) để dùng miễn phí nếu không muốn trả qua WorshipCast
+• Không khóa dữ liệu người dùng: dừng trả phí không xóa dữ liệu đã tạo, chỉ tắt tính năng thuộc gói cao hơn
+22.2 Bảng phân tầng Free / Pro / Enterprise
+Áp dụng triệt để nguyên tắc: chỉ tính năng có chi phí vận hành thật sự không thể tránh (server cloud của 
+WorshipCast, băng thông trung tâm, license dữ liệu bên thứ ba, hoặc gọi API AI trả phí) mới thuộc 
+Pro/Enterprise. Mọi tính năng chạy hoàn toàn cục bộ (local compute, LAN, hoặc gọi thẳng API miễn phí của bên 
+thứ ba như Google/Microsoft OAuth, Canva) đều thuộc Free — kể cả những tính năng nghe có vẻ "cao cấp" như 
+DMX, Failover, RBAC, SSO, Audit Log.
+Tier Phạm vi tính năng (theo các Bước đã thiết kế)
+Free (mã nguồn mở, 
+không giới hạn)
+Bước 1-14 toàn bộ (Core, Rendering Engine, OBS Integration, Audio Playback kể cả xử lý 
+DSP chuyên nghiệp, Song/Bible Editor, Text Formatting, 
+Overlays/Templates/Calendar/Typography/PiP/Functions, phím tắt). Bước 15: toàn bộ dữ 
+===== PAGE 50 =====
+Tier Phạm vi tính năng (theo các Bước đã thiết kế)
+liệu tĩnh (Interlinear, Strong's, Concordance, Morphology). Bước 17 toàn bộ (Layers, 
+Arrangements, Failover Output, Props, CCLI Reporting, Screen Mapping/Edge Blending, 
+API công khai, DMX — đều chạy local/LAN, không qua server WorshipCast). Bước 18: 
+Companion App, Timeline chương trình, MIDI/thiết bị vật lý (chạy qua LAN). Bước 19: 
+RBAC, Audit Log, Analytics Dashboard, SSO (dùng OAuth của Google/Microsoft, không tốn 
+chi phí phía WorshipCast), Concurrent Editing trong LAN. Bước 20: Backing Track, Tap-to-
+Sync, AI Auto-Sync bằng model căn chỉnh mã nguồn mở chạy local. Bước 21: Canva 
+Integration (gọi thẳng API Canva của người dùng), AI xóa nền bằng model mã nguồn mở 
+chạy local
+Pro (trả phí — chỉ cho 
+dịch vụ có chi phí hạ 
+tầng/license thật)
+Bước 15: Từ điển học thuật có bản quyền phải mua license (BDAG/BDB). Bước 16: AI Dịch 
+thuật nguyên ngữ theo văn mạch (gọi API LLM trả phí — có lối thoát BYOK để dùng Free). 
+Bước 18: Cloud Sync đa máy nếu dùng hạ tầng do WorshipCast quản lý (tự host trên 
+server riêng vẫn Free). Bước 19: Closed Captioning bằng AI cloud độ chính xác cao (bản 
+local/offline vẫn Free), Cloud Backup nếu dùng lưu trữ do WorshipCast quản lý (tự 
+backup lên cloud riêng vẫn Free). Bước 20: AI Auto-Sync bằng model cloud độ chính xác 
+cao hơn (tùy chọn, bản local vẫn Free). Bước 21: AI xóa nền bằng model cloud chất lượng 
+cao hơn (tùy chọn, bản local vẫn Free)
+Enterprise (theo hợp 
+đồng/số campus/số 
+user)
+Bước 19: Multi-Campus Sync khi dùng hạ tầng relay do WorshipCast quản lý và cần 
+SLA/hỗ trợ ưu tiên (tự dựng VPN/server riêng giữa các campus vẫn có thể làm Free, 
+nhưng không có SLA). Ngoài ra Enterprise chủ yếu là gói hỗ trợ: SLA vận hành, hỗ trợ kỹ 
+thuật ưu tiên, tư vấn triển khai đa điểm nhóm — không phải khóa tính năng
+Ghi chú: Triết lý cốt lõi: WorshipCast không khóa tính năng để ép trả phí — chỉ thu phí đúng phần chi phí thật phát sinh 
+(license dữ liệu bên thứ ba, hạ tầng cloud nếu chọn dùng bản do WorshipCast quản lý, hoặc lượt gọi AI cloud). Mọi tính 
+năng đều có thể dùng Free 100% nếu người dùng chấp nhận tự vận hành hạ tầng riêng (self-host server đồng bộ, tự nhập 
+API key AI - BYOK, hoặc dùng bản xử lý AI cục bộ độ chính xác thấp hơn bản cloud).
+22.3 Kiến trúc License & Kích hoạt
+┌─────────────────┐   Xác thực license   ┌─────────────────┐
+│   WorshipCast App  │ ───────────────────► │  License Server  │
+│   (offline-first)   │ ◄─────────────────── │  (chỉ X câgn khi     │
+│                    │  Token + hạn dùng     │   kích hoạt/gia   │
+│                    │  (cache local 30 ngày)│   hạn)            │
+└─────────────────┘                       └─────────────────┘
+Tính năng Mô tả
+Kích hoạt license 1 lần Nhập license key, xác thực qua internet 1 lần, sau đó cache local
+Grace period khi mất mạng Token cache hoạt động tối đa 30 ngày không cần internet — đúng 
+nguyên tắc offline-first, tránh khóa tính năng giữa buổi lễ vì mất mạng
+Tự động hạ cấp về Free khi hết hạn Không xóa dữ liệu, chỉ ẩn tính năng Pro/Enterprise, Free tier vẫn chạy 
+đầy đủ
+BYOK cho AI Cấu hình API key riêng trong Settings, bỏ qua hoàn toàn license Pro 
+cho phần AI nếu người dùng chọn cách này
+22.4 Bổ sung Database schema
+CREATE TABLE license_info (
+    id INTEGER PRIMARY KEY,
+    license_key TEXT,
+===== PAGE 51 =====
+    tier TEXT,                   -- 'free', 'pro', 'enterprise'
+    activated_at DATETIME,
+    expires_at DATETIME,
+    last_verified_at DATETIME,
+    grace_period_days INTEGER DEFAULT 30
+);
+ 
+CREATE TABLE byok_api_keys (
+    id INTEGER PRIMARY KEY,
+    provider TEXT,                -- 'openai', 'anthropic', 'canva'
+    api_key_encrypted TEXT,
+    added_at DATETIME
+);
+ 
+CREATE TABLE feature_flags (
+    id INTEGER PRIMARY KEY,
+    feature_key TEXT,             -- 'audio_broadcast_processing', 'ai_translation', 
+'ai_auto_sync', 'multi_campus', ...
+    required_tier TEXT,           -- 'free', 'pro', 'enterprise'
+    enabled_by_byok BOOLEAN DEFAULT 0
+);
+22.5 Failsafe
+Tình huống Xử lý
+License Server không phản hồi lúc kích hoạt lần 
+đầu
+Không cho vận hành live nếu chưa từng xác thực — nhưng chỉ 
+chặn tính năng Pro/Enterprise, Free tier không yêu cầu license
+Hết grace period 30 ngày offline Tự hạ cấp về Free, thông báo rõ ràng khi mở app, không khóa 
+app hay xóa dữ liệu
+License hết hạn đúng giữa buổi lễ đang live Không ngắt tính năng đang chạy giữa phiên live hiện tại, chỉ áp 
+dụng hạ cấp từ lần mở app tiếp theo
+Người dùng nhập sai BYOK API key Báo lỗi rõ ràng ở Settings, không làm crash tính năng liên 
+quan, fallback về trạng thái tắt tính năng đó
+Bước 23 — Import/Export dữ liệu nâng cao
+Cho phép chuyển dữ liệu từ các phần mềm trình chiếu khác vào WorshipCast (giảm rào cản chuyển đổi cho hội 
+thánh đang dùng phần mềm cũ), và xuất/nhập dữ liệu WorshipCast dưới nhiều định dạng cho mục đích backup, 
+chia sẻ, hoặc di chuyển giữa các máy.
+23.1 Import bài hát từ phần mềm khác
+Theo khảo sát các phần mềm trình chiếu chuyên nghiệp hiện có (tham khảo từ danh sách hỗ trợ Import của 
+OpenLP), WorshipCast hỗ trợ nhập dữ liệu từ các định dạng sau:
+Phần mềm / Định dạng Loại file Mức độ phổ biến
+ProPresenter (4 trở lên) .pro4/.pro5/.pro6, .proBible, .proPla
+ylist
+Rất cao — phần mềm tham 
+chiếu chính
+FreeShow JSON (.show, .project) Cao — phần mềm mã nguồn mở 
+tương đương
+EasyWorship (2009+) Database (.db/.ewdb) Cao — phổ biến ở Bắc Mỹ
+===== PAGE 52 =====
+Phần mềm / Định dạng Loại file Mức độ phổ biến
+OpenLP XML, song database (.sqlite/.osz) Trung bình — phần mềm mã 
+nguồn mở lâu năm
+EasySlides XML Trung bình
+SongShow Plus Song files (.sbsng) Trung bình
+MediaShout Database (.mediashout) Trung bình
+ZionWorx CSV Thấp — nhưng đơn giản, dễ hỗ 
+trợ
+CCLI SongSelect Files export từ SongSelect 
+(.txt/.usr/.ccli)
+Cao — nhiều hội thánh tải bài 
+hát có bản quyền từ đây
+ChordPro .cho / .chopro Cao trong giới nhạc sĩ Cơ Đốc — 
+chuẩn mở, dễ parse nhất
+Kiến trúc Import Adapter
+┌─────────────────────────────────────────────────────┐
+│  IMPORT WIZARD                                        │
+│  1. Chọn phâgn mếgm nguôgn (dropdown 10 định dạng trến)   │
+│  2. Chọn file/thử mục câgn import                       │
+│  3. Xem trửớc danh sách bài hát nhận diện đửợc          │
+│  4. Xác nhận import (có ca Xnh báo trùng lặp với thử viện │
+│     hiện có, theo tến bài hát + CCLI number)            │
+└─────────────────────────────────────────────────────┘
+ 
+Môi định dạng có 1 "Import Adapter" riếng, cùng implement 1 interface
+chung đếX đôX dữ liệu vếg đúng schema songs/song_slides cu Xa WorshipCast:
+ 
+interface IImportAdapter {
+    detectFormat(filePath): boolean
+    parse(filePath): RawSongData[]
+    mapToWorshipCastSchema(RawSongData[]): { song, slides }[]
+}
+Tính năng Mô tả
+Nhận diện trùng lặp So khớp theo tên bài hát + CCLI number trước khi import, tránh tạo 
+bản trùng
+Xem trước trước khi ghi Hiển thị danh sách bài hát nhận diện được, cho tick chọn/bỏ chọn 
+từng bài trước khi import thật
+Giữ nguyên cấu trúc Verse/Chorus gốc Không làm mất section_label đã có sẵn trong file gốc (nếu định dạng 
+nguồn có lưu)
+Log lỗi khi parse thất bại Với file/bài hát không đọc được, báo rõ lý do thay vì import âm thầm 
+thiếu
+CREATE TABLE import_jobs (
+    id INTEGER PRIMARY KEY,
+    source_format TEXT,          -- 'propresenter', 'freeshow', 'easyworship', 'openlp', ...
+    file_path TEXT,
+    total_items INTEGER,
+    imported_count INTEGER,
+    failed_count INTEGER,
+    started_at DATETIME,
+===== PAGE 53 =====
+    finished_at DATETIME
+);
+ 
+CREATE TABLE import_job_errors (
+    id INTEGER PRIMARY KEY,
+    import_job_id INTEGER REFERENCES import_jobs(id),
+    item_identifier TEXT,          -- tến bài hát hoặc dòng lôi trong file
+    error_message TEXT
+);
+Ghi chú: Import chạy hoàn toàn cục bộ (parse file trên máy), không cần gửi dữ liệu lên server nào — thuộc Free tier theo 
+đúng nguyên tắc Bước 22.
+23.2 Export/Import dữ liệu nâng cao (định dạng của WorshipCast)
+Ngoài việc nhập từ phần mềm khác, WorshipCast cần cơ chế Export/Import riêng để: backup toàn bộ thư viện, 
+chia sẻ giữa nhiều máy (khi chưa dùng Cloud Sync ở Bước 18), hoặc chuyển dữ liệu khi đổi máy tính.
+Loại Export/Import Phạm vi Định dạng file
+Export toàn bộ thư viện Tất cả Song, Bible Readings, Playlist, 
+Template, Media reference (không kèm file 
+media nặng, chỉ đường dẫn — trừ khi chọn 
+'kèm media')
+.worshipcast (ZIP chứa 
+SQLite export + manifest 
+JSON)
+Export chọn lọc Chỉ 1 bài hát, 1 Playlist, hoặc 1 nhóm 
+Template cụ thể
+.worshipcast-item (JSON 
+đơn lẻ)
+Export tương thích ChordPro Chỉ phần lời + hợp âm bài hát, dùng chia sẻ 
+ra ngoài hệ sinh thái WorshipCast
+.cho
+Export PDF hợp âm In ra giấy cho ca đoàn/nhạc công (đã có ở 
+Bước 6.2a)
+.pdf
+Import lại file .worshipcast Khôi phục từ backup hoặc nhận từ máy 
+khác
+.worshipcast / .worshipca
+st-item
+CREATE TABLE export_jobs (
+    id INTEGER PRIMARY KEY,
+    export_type TEXT,            -- 'full_library', 'selective', 'chordpro', 'pdf'
+    include_media_files BOOLEAN DEFAULT 0,
+    output_path TEXT,
+    created_at DATETIME
+);
+Failsafe
+Tình huống Xử lý
+Import file .worshipcast từ version WorshipCast 
+cũ hơn/mới hơn
+Manifest JSON có version schema riêng, tự động migrate nếu 
+khác version, báo lỗi rõ nếu không tương thích được
+Import đè lên dữ liệu đã có ID trùng Luôn tạo ID mới khi import, không ghi đè dữ liệu hiện có theo 
+ID cũ từ file nguồn
+File export bị hỏng/thiếu media tham chiếu Import phần dữ liệu đọc được, báo danh sách phần bị thiếu, 
+không hủy toàn bộ tiến trình
+===== PAGE 54 =====
+Bước 24 — API Kinh Thánh (mở rộng bản dịch)
+Mở rộng Bible Module (Bước 6.2b, Bước 11.2) để lấy thêm bản dịch Kinh Thánh qua API bên ngoài, thay vì chỉ 
+dùng dữ liệu đã đóng gói sẵn offline.
+24.1 Danh sách API cân nhắc tích hợp
+API Đặc điểm Ghi chú
+YouVersion Bible API 2500+ bản dịch, 1750+ ngôn ngữ API phổ biến nhất, nhiều bản 
+dịch nhất — nhưng cần đăng ký 
+Partner/API key, có điều khoản 
+sử dụng riêng
+Bible API (bible-api.com) Miễn phí, JSON, không cần đăng ký Dễ tích hợp nhất, phù hợp làm 
+mặc định — nhưng số bản dịch 
+có sẵn ít hơn YouVersion
+Bible Gateway API Nhiều bản dịch Có giới hạn số requests/tháng 
+theo gói
+ESV API (Crossway) Bản dịch ESV chính thức Chất lượng cao, cần API key, có 
+điều khoản giới hạn số câu lấy về 
+mỗi lần
+24.2 Kiến trúc tích hợp — ưu tiên Cache Offline
+Đúng nguyên tắc offline-first xuyên suốt hệ thống: API chỉ dùng để tải bản dịch mới 1 lần, sau đó lưu toàn bộ vào 
+SQLite local, không gọi API lại mỗi lần trình chiếu.
+┌─────────────────────────────────────┐
+│  THẾM BAXN DỊCH MỚI                    │
+│  Nguôgn: [ bible-api.com ]  [Xem khác] │
+│  Ba Xn dịch: [ NIV ]  Ngôn ngữ: [ EN ]  │
+│  [ Ta Xi vếg & Lửu offline ]              │
+│  TiếZn trình: ████████░░ 80%            │
+└─────────────────────────────────────┘
+ 
+Luôgng: Chọn API + ba Xn dịch -> Gọi API ta Xi toàn bộ 66 sách
+       -> Lửu vào bible_versions/bible_verses (local)
+       -> Từ lúc này, trình chiếZu KHỔNG gọi API nữa, chỉ X đọc SQLite
+Tính năng Mô tả
+Tải 1 lần, dùng mãi offline Sau khi tải xong 1 bản dịch, không cần internet để dùng lại — đúng 
+nguyên tắc offline-first
+Chọn nguồn API linh hoạt Người dùng chọn API nào phù hợp (miễn phí hay cần key riêng)
+Kiểm tra bản quyền trước khi tải Một số bản dịch có điều khoản giới hạn sử dụng (VD không cho phát 
+công khai số lượng lớn) — hiển thị rõ điều khoản trước khi tải
+Cập nhật lại bản dịch đã tải Tùy chọn tải lại nếu API nguồn có sửa lỗi chính tả/cập nhật bản dịch
+24.3 Bổ sung Database schema
+ALTER TABLE bible_versions ADD COLUMN source_api TEXT;        -- 'youversion', 'bible_api', 
+'biblegateway', 'esv'
+===== PAGE 55 =====
+ALTER TABLE bible_versions ADD COLUMN license_note TEXT;       -- ghi chú điếgu khoa Xn ba Xn 
+quyếgn cu Xa ba Xn dịch
+ALTER TABLE bible_versions ADD COLUMN downloaded_at DATETIME;
+ 
+CREATE TABLE bible_api_configs (
+    id INTEGER PRIMARY KEY,
+    provider TEXT,               -- 'youversion', 'bible_api', 'biblegateway', 'esv'
+    api_key_encrypted TEXT,       -- rông nếZu provider không câgn key (VD bible-api.com)
+    rate_limit_per_month INTEGER,
+    requests_used_this_month INTEGER DEFAULT 0
+);
+24.4 Phân định Free/Pro
+Nhóm tính năng Tier
+Tải bản dịch từ API miễn phí, không cần key (VD bible-api.com) Free
+Tự nhập API key riêng (BYOK) cho YouVersion/ESV/Bible 
+Gateway
+Free — người dùng tự đăng ký và trả phí trực 
+tiếp cho nhà cung cấp API nếu họ yêu cầu
+WorshipCast cung cấp sẵn API key dùng chung (không cần 
+người dùng tự đăng ký)
+Pro — vì WorshipCast phải trả chi phí quota/API 
+key thay người dùng
+24.5 Failsafe
+Tình huống Xử lý
+API nguồn thay đổi định dạng phản hồi Import Adapter riêng cho từng API (giống nguyên tắc Bước 
+23.1), lỗi 1 API không ảnh hưởng API khác
+Tải bản dịch bị ngắt giữa chừng Lưu tiến trình theo từng sách, có thể tiếp tục tải phần còn 
+thiếu, không phải tải lại từ đầu
+Hết quota API (nếu dùng gói giới hạn requests) Cảnh báo rõ số quota còn lại trước khi tải, không để tải dở 
+dang rồi mới báo lỗi
+Bước 25 — Đa ngôn ngữ giao diện (i18n)
+Giao diện WorshipCast hỗ trợ nhiều ngôn ngữ hiển thị (khác với đa ngôn ngữ của nội dung Kinh Thánh/bài hát ở 
+Bước 24) — phục vụ người vận hành ở nhiều quốc gia, hoặc hội thánh có tình nguyện viên không nói tiếng Việt.
+25.1 Ngôn ngữ hỗ trợ ban đầu
+Ngôn ngữ Mức độ ưu tiên
+Tiếng Việt Mặc định, hoàn thiện đầy đủ 100% ngay từ đầu
+Tiếng Anh (English) Hoàn thiện đầy đủ ngay từ đầu — ngôn ngữ phổ biến nhất trong giới 
+phần mềm worship quốc tế
+Các ngôn ngữ khác (Tây Ban Nha, Hàn, 
+Trung, Khmer, Thái...)
+Thêm dần theo nhu cầu thực tế, cộng đồng có thể đóng góp bản dịch
+===== PAGE 56 =====
+25.2 Kiến trúc i18n
+┌─────────────────────────────────────┐
+│  SETTINGS > NGỔN NGỮ                  │
+│  Ngôn ngữ giao diện: [ TiếZng Việt ▾ ] │
+│  (đôXi ngay lập tức, không câgn restart) │
+└─────────────────────────────────────┘
+ 
+CâZu trúc file ngôn ngữ (giôZng chuâXn i18next):
+locales/
+  vi.json      -- TiếZng Việt (mặc định)
+  en.json      -- English
+  es.json      -- Español (thếm sau)
+  ...
+Tính năng Mô tả
+Đổi ngôn ngữ không cần khởi động lại Áp dụng ngay khi chọn ở Settings, dùng thư viện i18n chuẩn 
+(i18next hoặc tương đương cho Tauri/React)
+Tự nhận diện ngôn ngữ hệ điều hành lần 
+đầu mở app
+Gợi ý ngôn ngữ phù hợp, người dùng vẫn có thể đổi lại tay
+Tách riêng ngôn ngữ giao diện và ngôn ngữ 
+nội dung
+Đổi giao diện sang tiếng Anh không tự đổi lời bài hát/Kinh Thánh 
+đang có sang tiếng Anh — 2 khái niệm độc lập
+Cộng đồng đóng góp bản dịch File JSON ngôn ngữ đơn giản, dễ để tình nguyện viên dịch thêm 
+ngôn ngữ mới mà không cần biết code
+25.3 Bổ sung Database schema
+CREATE TABLE app_settings (
+    id INTEGER PRIMARY KEY,
+    ui_language TEXT DEFAULT 'vi',    -- 'vi', 'en', 'es', ...
+    updated_at DATETIME
+);
+Ghi chú: Chuỗi giao diện (UI strings) không lưu trong database mà lưu ở file tài nguyên tĩnh (locales/*.json) đi kèm bản cài 
+đặt — chỉ có lựa chọn ngôn ngữ hiện tại của người dùng mới lưu vào database.
+25.4 Failsafe
+Tình huống Xử lý
+Thiếu bản dịch cho 1 chuỗi giao diện ở ngôn ngữ 
+mới
+Tự động fallback về tiếng Anh cho riêng chuỗi đó, không để 
+trống hoặc hiện mã lỗi (VD 'undefined')
+File ngôn ngữ bị lỗi cú pháp JSON Không làm crash app — fallback toàn bộ về tiếng Việt (ngôn 
+ngữ mặc định gốc) và báo lỗi rõ trong Settings
+Kết luận
+Ba nguyên tắc cốt lõi xuyên suốt toàn bộ thiết kế: (1) tách biệt hoàn toàn control và render để đảm bảo output 
+không bao giờ giật/crash theo UI; (2) pre-cache mọi thứ trước khi cần để chuyển slide tức thời; (3) luôn có 
+phương án dự phòng (failsafe) khi có lỗi. Đây là 3 nguyên tắc mà ProPresenter và các phần mềm broadcast 
+chuyên nghiệp như OBS, vMix đều tuân theo.
+===== PAGE 57 =====
+Tài liệu này là bản thiết kế tổng thể (design doc) làm nền tảng trước khi bắt đầu dựng khung dự án (scaffold) và 
+code thực tế. Tích hợp OBS Studio (Bước 9) và Audio Playback Module (Bước 10) là các module mở rộng tùy 
+chọn, không thay đổi kiến trúc lõi đã thiết lập ở Bước 5 — đúng nguyên tắc: bật/tắt tự do, không ảnh hưởng đến 
+sự ổn định của chức năng trình chiếu chính. Song & Bible Editor (Bước 11) cùng Text Formatting Toolbar (Bước 
+12) hoàn thiện trải nghiệm soạn nội dung. Overlays/Templates/Calendar/Typography/PiP/Functions (Bước 13), 
+bảng phím tắt chuyên nghiệp (Bước 14), và tra cứu nguyên ngữ Hebrew/Hy Lạp cùng AI dịch thuật giới hạn 
+phạm vi Kinh Thánh (Bước 15-16) đưa WorshipCast lên tầm công cụ nghiên cứu và vận hành chuyên sâu.
+Bước 17-19 bổ sung toàn bộ khoảng trống còn lại so với ProPresenter và FreeShow (Layers System, 
+Arrangements, Failover Output, Props, CCLI Reporting, Screen Mapping, API công khai, DMX; Cloud Sync đa máy, 
+Companion App, Timeline toàn chương trình, MIDI/thiết bị vật lý), cùng nhóm tính năng cấp Enterprise dành 
+riêng cho nhà thờ đa điểm nhóm/quy mô lớn (Multi-Campus Sync, RBAC, Audit Log, Closed Captioning, 
+Analytics, Cloud Backup, SSO, Concurrent Editing).
+Bước 20-21 bổ sung Backing Track kèm AI Auto-Sync lời (thay thế ban nhạc khi cần) và tích hợp Canva cùng công 
+cụ xóa nền AI. Bước 22 chốt mô hình kinh doanh Open Core theo nguyên tắc free tối đa: lõi trình chiếu và gần 
+như toàn bộ tính năng nâng cao/Enterprise (Bước 1-15, 17-21) đều miễn phí vì chạy local/LAN không phát sinh 
+chi phí; chỉ những gì thật sự có chi phí không thể tránh (license từ điển bản quyền, hạ tầng cloud do WorshipCast 
+quản lý, lượt gọi API AI cloud) mới thuộc Pro/Enterprise, và luôn có lối thoát Free tương đương (tự host, BYOK, 
+hoặc dùng bản xử lý AI cục bộ).
+Bước 23-25 hoàn thiện khả năng liên thông và tiếp cận: Import dữ liệu từ 10 phần mềm/định dạng phổ biến 
+(ProPresenter, FreeShow, EasyWorship, OpenLP, EasySlides, SongShow Plus, MediaShout, ZionWorx, CCLI 
+SongSelect, ChordPro) giúp hội thánh dễ chuyển đổi sang WorshipCast, Export/Import định dạng riêng cho 
+backup và chia sẻ; tích hợp API Kinh Thánh (YouVersion, bible-api.com, Bible Gateway, ESV) để mở rộng bản dịch 
+theo mô hình tải-về-dùng-offline; và đa ngôn ngữ giao diện (Tiếng Việt, English, mở rộng dần) để phục vụ người 
+vận hành ở nhiều quốc gia. Đến đây, WorshipCast đã có đầy đủ nền tảng thiết kế kỹ thuật lẫn mô hình vận hành 
+để phục vụ từ hội thánh nhỏ đến tổ chức nhà thờ lớn nhiều chi nhánh, trên phạm vi quốc tế.

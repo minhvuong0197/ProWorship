@@ -1,0 +1,5 @@
+import ReactDOM from "react-dom/client";
+import StageView from "../components/Stage/StageView";
+import "../styles/stage.css";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(<StageView />);

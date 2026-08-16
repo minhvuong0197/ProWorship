@@ -1,0 +1,436 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: #000;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.output-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+  overflow: hidden;
+}
+
+.output-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.media-asset {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.media-asset.full {
+  object-fit: contain;
+}
+
+.media-asset.bg {
+  object-fit: cover;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.song-overlay {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: #fff;
+  max-width: 80vw;
+  max-height: 92vh;
+  padding: 4vh 4vw;
+}
+
+.output-label {
+  font-size: 3vh;
+  opacity: 0.85;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 1.5vh;
+}
+
+.output-lyrics {
+  font-size: clamp(26px, 6.2vh, 45vh);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9);
+}
+
+.output-textbox {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  padding: 2vh 2vw;
+}
+
+.output-textbox .output-lyrics {
+  width: 100%;
+}
+
+.output-fitblock {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-textbox .output-fitblock .output-lyrics {
+  width: 100%;
+}
+
+.output-blank {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+
+.output-bg-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* ---------- Template elements ---------- */
+.output-element {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.output-element-text {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.output-element-scroll-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.output-element-scroll {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  padding: 4px 12px;
+}
+
+/* ---------- Layers ---------- */
+.output-layer {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.output-layer-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.output-layer-text {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: pre-wrap;
+  line-height: 1.3;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+/* ---------- Props overlay ---------- */
+.props-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.prop-box {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.prop-clock {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: clamp(16px, 9vh, 120px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+}
+
+.prop-analog {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 0.5vh solid;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.6);
+}
+
+.prop-analog .ah,
+.prop-analog .am,
+.prop-analog .as {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform-origin: 0 50%;
+  border-radius: 2px;
+}
+
+.prop-analog .ah {
+  width: 25%;
+  height: 0.8vh;
+  margin-left: 0;
+  transform: rotate(0deg);
+}
+
+.prop-analog .am {
+  width: 35%;
+  height: 0.5vh;
+}
+
+.prop-analog .as {
+  width: 40%;
+  height: 0.25vh;
+  opacity: 0.85;
+}
+
+.prop-border {
+  position: absolute;
+  border: 2vh solid var(--bc, #ffffff);
+  border-radius: 8px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.prop-snow,
+.prop-sparkle {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.prop-snow i {
+  position: absolute;
+  top: -12px;
+  background: #fff;
+  border-radius: 50%;
+  opacity: 0.8;
+  animation-name: snowFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes snowFall {
+  to {
+    transform: translateY(105vh);
+  }
+}
+
+.prop-sparkle i {
+  position: absolute;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.8);
+  animation-name: sparklePulse;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes sparklePulse {
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+/* ---------- Overlays (Step 13.1) ---------- */
+.overlays-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.overlay-box {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.overlay-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.overlay-pip {
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  clip-path: inset(0 round 8px);
+}
+.overlay-pip .media-asset {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.overlay-countdown {
+  font-size: clamp(24px, 14vh, 160px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
+  line-height: 1;
+}
+
+.output-countdown-global {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 20;
+}
+.output-countdown-global > span {
+  font-size: clamp(40px, 28vh, 320px);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 6px 40px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.8);
+  line-height: 1;
+}
+
+.overlay-countdown-warn {
+  color: #e53935;
+  animation: warnPulse 1s ease-in-out infinite;
+}
+
+@keyframes warnPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.overlay-banner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(18px, 5vh, 56px);
+  font-weight: 700;
+  text-align: center;
+  padding: 1vh 2vw;
+  border-radius: 10px;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.5);
+}
+
+.overlay-lowerthird {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: clamp(16px, 4.5vh, 48px);
+  font-weight: 600;
+  padding: 0.6vh 1.5vw;
+  border-left: 0.6vh solid currentColor;
+  border-radius: 6px;
+}
+
+.overlay-ticker {
+  align-items: center;
+  overflow: hidden;
+}
+
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: tickerScroll 18s linear infinite;
+}
+
+.ticker-text {
+  white-space: nowrap;
+  font-size: clamp(14px, 3vh, 32px);
+  font-weight: 600;
+  padding-right: 6vw;
+  letter-spacing: 1px;
+}
+
+@keyframes tickerScroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

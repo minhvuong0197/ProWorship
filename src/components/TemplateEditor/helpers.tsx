@@ -88,7 +88,7 @@ export const isTextual = (k: TemplateElementKind) =>
  * mirrors resolveDynamicValue in the preview/output (same token set).
  */
 export function resolveEditorPreview(content: string, isBible?: boolean): string {
-  if (!content.includes("{")) return content;
+  if (!content.includes("{") && !content.includes("%")) return content;
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   const sampleText = isBible
@@ -109,13 +109,38 @@ export function resolveEditorPreview(content: string, isBible?: boolean): string
     scripture_verses: "1-4",
     date: now.toLocaleDateString(),
     time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    hour: pad(now.getHours()),
+    minute: pad(now.getMinutes()),
+    second: pad(now.getSeconds()),
     day: new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(now),
     month: new Intl.DateTimeFormat(undefined, { month: "long" }).format(now),
     year: String(now.getFullYear()),
   };
+  const pctAliases: Record<string, string> = {
+    TITLE: "title",
+    SLIDE_LABEL: "label",
+    TEXT: "text",
+    DATE: "date",
+    TIME: "time",
+    HOUR: "hour",
+    MINUTE: "minute",
+    SECOND: "second",
+    DAY_OF_WEEK: "day",
+    MONTH: "month",
+    YEAR: "year",
+    SCRIPTURETEXT: "scripture_text",
+    SCRIPTUREREF: "scripture_reference",
+    BIBLENAME: "scripture_name",
+    BIBLECHAPTER: "scripture_chapter",
+    BIBLEVERSE: "scripture_verse",
+    BIBLEVERSES: "scripture_verses",
+  };
   return content.replace(
-    /\{(text|title|label|reference|scripture|scripture_text|scripture_reference|scripture_name|scripture_book|scripture_chapter|scripture_verse|scripture_verses|date|time|day|month|year)\}/g,
-    (m, k: string) => map[k] ?? m,
+    /\{(text|title|label|reference|scripture|scripture_text|scripture_reference|scripture_name|scripture_book|scripture_chapter|scripture_verse|scripture_verses|date|time|hour|minute|second|day|month|year)\}|%(TITLE|SLIDE_LABEL|TEXT|DATE|TIME|HOUR|MINUTE|SECOND|DAY_OF_WEEK|MONTH|YEAR|SCRIPTURETEXT|SCRIPTUREREF|BIBLENAME|BIBLECHAPTER|BIBLEVERSE|BIBLEVERSES)%/g,
+    (m: string, braceKey?: string, pctKey?: string) => {
+      const key = braceKey ?? (pctKey ? pctAliases[pctKey] : undefined);
+      return key ? map[key] ?? m : m;
+    },
   );
 }
 

@@ -7,7 +7,7 @@ import type { AppSettings, Layer, LiveSlide, LiveState, LiveTransition, Overlay,
 import PropsOverlay from "./PropsOverlay";
 import NativeVideo from "../NativeVideo";
 import StyledText, { parseCss } from "../StyledText";
-import { applyVirtualBreaks } from "../../lib/live";
+import { applyVirtualBreaks, resolveDynamicValue } from "../../lib/live";
 import { transposeChords } from "../../lib/chords";
 import {
   clampReferenceRect,
@@ -174,49 +174,6 @@ function LayerView({ layer }: { layer: Layer }) {
         {layer.text}
       </div>
     </div>
-  );
-}
-
-function resolveDynamicValue(
-  content: string,
-  slide?: Partial<LiveSlide> | null,
-): string {
-  if (!content.includes("{")) return content;
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  // bible_ref format: abbrev|chapter|first|last|bookName|versionName
-  const bp = (slide?.bible_ref ?? "").split("|");
-  const bookName = bp[4] ?? "";
-  const versionName = bp[5] ?? "";
-  const chapter = bp[1] ?? "";
-  const firstVerse = bp[2] ?? "";
-  const lastVerse = bp[3] ?? "";
-  const verses =
-    firstVerse && lastVerse && firstVerse !== lastVerse
-      ? `${firstVerse}-${lastVerse}`
-      : firstVerse;
-  const map: Record<string, string> = {
-    text: slide?.text ?? "",
-    title: slide?.title ?? "",
-    label: slide?.label ?? "",
-    reference: slide?.label ?? slide?.title ?? "",
-    scripture: slide?.text ?? "",
-    scripture_text: slide?.text ?? "",
-    scripture_reference: slide?.label ?? slide?.title ?? "",
-    scripture_name: versionName,
-    scripture_book: bookName,
-    scripture_chapter: chapter,
-    scripture_verse: firstVerse,
-    scripture_verses: verses,
-    date: now.toLocaleDateString(),
-    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-    day: new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(now),
-    month: new Intl.DateTimeFormat(undefined, { month: "long" }).format(now),
-    year: String(now.getFullYear()),
-  };
-  return content.replace(
-    /\{(text|title|label|reference|scripture|scripture_text|scripture_reference|scripture_name|scripture_book|scripture_chapter|scripture_verse|scripture_verses|date|time|day|month|year)\}/g,
-    (m, k: string) => map[k] ?? m,
   );
 }
 

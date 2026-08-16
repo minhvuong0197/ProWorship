@@ -19,6 +19,80 @@ export function defaultLive(settings: AppSettings | null): LiveState {
   };
 }
 
+const TOKEN_RE =
+  /\{(text|title|label|reference|scripture|scripture_text|scripture_reference|scripture_name|scripture_book|scripture_chapter|scripture_verse|scripture_verses|date|time|hour|minute|second|day|month|year)\}|%(TITLE|SLIDE_LABEL|TEXT|DATE|TIME|HOUR|MINUTE|SECOND|DAY_OF_WEEK|MONTH|YEAR|SCRIPTURETEXT|SCRIPTUREREF|BIBLENAME|BIBLECHAPTER|BIBLEVERSE|BIBLEVERSES)%/g;
+
+const PCT_ALIASES: Record<string, string> = {
+  TITLE: "title",
+  SLIDE_LABEL: "label",
+  TEXT: "text",
+  DATE: "date",
+  TIME: "time",
+  HOUR: "hour",
+  MINUTE: "minute",
+  SECOND: "second",
+  DAY_OF_WEEK: "day",
+  MONTH: "month",
+  YEAR: "year",
+  SCRIPTURETEXT: "scripture_text",
+  SCRIPTUREREF: "scripture_reference",
+  BIBLENAME: "scripture_name",
+  BIBLECHAPTER: "scripture_chapter",
+  BIBLEVERSE: "scripture_verse",
+  BIBLEVERSES: "scripture_verses",
+};
+
+/**
+ * Thay thế token dạng `{token}` (WorshipCast) và `%TOKEN%` (kiểu ProPresenter)
+ * bằng giá trị động của slide hiện tại. Dùng chung cho preview, output và
+ * helper của template editor — giữ nguyên cùng một tập token.
+ */
+export function resolveDynamicValue(
+  content: string,
+  slide?: Partial<LiveSlide> | null,
+): string {
+  if (!content.includes("{") && !content.includes("%")) return content;
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  // bible_ref format: abbrev|chapter|first|last|bookName|versionName
+  const bp = (slide?.bible_ref ?? "").split("|");
+  const bookName = bp[4] ?? "";
+  const versionName = bp[5] ?? "";
+  const chapter = bp[1] ?? "";
+  const firstVerse = bp[2] ?? "";
+  const lastVerse = bp[3] ?? "";
+  const verses =
+    firstVerse && lastVerse && firstVerse !== lastVerse
+      ? `${firstVerse}-${lastVerse}`
+      : firstVerse;
+  const map: Record<string, string> = {
+    text: slide?.text ?? "",
+    title: slide?.title ?? "",
+    label: slide?.label ?? "",
+    reference: slide?.label ?? slide?.title ?? "",
+    scripture: slide?.text ?? "",
+    scripture_text: slide?.text ?? "",
+    scripture_reference: slide?.label ?? slide?.title ?? "",
+    scripture_name: versionName,
+    scripture_book: bookName,
+    scripture_chapter: chapter,
+    scripture_verse: firstVerse,
+    scripture_verses: verses,
+    date: now.toLocaleDateString(),
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    hour: pad(now.getHours()),
+    minute: pad(now.getMinutes()),
+    second: pad(now.getSeconds()),
+    day: new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(now),
+    month: new Intl.DateTimeFormat(undefined, { month: "long" }).format(now),
+    year: String(now.getFullYear()),
+  };
+  return content.replace(TOKEN_RE, (m, braceKey?: string, pctKey?: string) => {
+    const key = braceKey ?? (pctKey ? PCT_ALIASES[pctKey] : undefined);
+    return key ? map[key] ?? m : m;
+  });
+}
+
 export function resolveSlideStyle(
   slide: SongSlide | undefined,
   settings: AppSettings | null,

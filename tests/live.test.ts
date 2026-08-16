@@ -3,6 +3,7 @@ import {
   applyVirtualBreaks,
   defaultLive,
   resolveArrangementOrder,
+  resolveDynamicValue,
   songSlideLive,
 } from "../src/lib/live";
 import type { Song } from "../src/lib/types";
@@ -96,5 +97,56 @@ describe("applyVirtualBreaks", () => {
 
   it("returns empty string for undefined text", () => {
     expect(applyVirtualBreaks(undefined, false)).toBe("");
+  });
+});
+
+describe("resolveDynamicValue tokens (WorshipCast + ProPresenter style)", () => {
+  const slide = {
+    title: "Way Maker",
+    label: "V1",
+    text: "Verse one",
+    bible_ref: "gen|1|1|4|Sáng-thế Ký|VPS 1925",
+  };
+
+  it("resolves brace tokens from the live slide", () => {
+    expect(resolveDynamicValue("{title} — {label}", slide)).toBe(
+      "Way Maker — V1",
+    );
+    expect(resolveDynamicValue("{text}", slide)).toBe("Verse one");
+  });
+
+  it("resolves ProPresenter-style %TOKEN% keys", () => {
+    expect(resolveDynamicValue("%TITLE% / %SLIDE_LABEL%", slide)).toBe(
+      "Way Maker / V1",
+    );
+    expect(resolveDynamicValue("%TEXT%", slide)).toBe("Verse one");
+  });
+
+  it("resolves ProPresenter Bible tokens from bible_ref", () => {
+    expect(resolveDynamicValue("%BIBLENAME% %BIBLECHAPTER%:%BIBLEVERSES%", slide)).toBe(
+      "VPS 1925 1:1-4",
+    );
+    expect(resolveDynamicValue("%SCRIPTUREREF%", slide)).toBe("V1");
+  });
+
+  it("resolves date/time tokens and hour/minute/second in both syntaxes", () => {
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    expect(resolveDynamicValue("{hour}:{minute}:{second}", slide)).toBe(
+      `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+    );
+    expect(resolveDynamicValue("%HOUR%:%MINUTE%:%SECOND%", slide)).toBe(
+      `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+    );
+  });
+
+  it("leaves unknown tokens untouched", () => {
+    expect(resolveDynamicValue("%NOT_A_TOKEN% {nope}", slide)).toBe(
+      "%NOT_A_TOKEN% {nope}",
+    );
+  });
+
+  it("returns content unchanged when there is no token", () => {
+    expect(resolveDynamicValue("plain text", slide)).toBe("plain text");
   });
 });

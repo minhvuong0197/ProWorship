@@ -26,8 +26,8 @@ export interface AutoFitReturns {
   fillRatio: number;
 }
 
-export const REF_TOKEN_RE = /\{(label|reference|scripture_reference)\}/;
-export const TEXT_TOKEN_RE = /\{(text|scripture|scripture_text)\}/;
+export const REF_TOKEN_RE = /\{(label|reference|scripture_reference)\}|%(SLIDE_LABEL|SCRIPTUREREF)%/;
+export const TEXT_TOKEN_RE = /\{(text|scripture|scripture_text)\}|%(TEXT|SCRIPTURETEXT)%/;
 
 /**
  * Largest font in [min, max] for which `measure(font)` is still true.

@@ -14,29 +14,54 @@ import { clampReferenceRect, REF_TOKEN_RE, useAutoRepositionRef } from "../../li
 const win = getCurrentWebviewWindow();
 
 const SONG_TOKENS: { token: string; hintKey: string }[] = [
-  { token: "text", hintKey: "templates.token_text" },
-  { token: "title", hintKey: "templates.token_title" },
-  { token: "label", hintKey: "templates.token_label" },
-  { token: "date", hintKey: "templates.token_date" },
-  { token: "time", hintKey: "templates.token_time" },
-  { token: "day", hintKey: "templates.token_day" },
-  { token: "month", hintKey: "templates.token_month" },
-  { token: "year", hintKey: "templates.token_year" },
+  { token: "{text}", hintKey: "templates.token_text" },
+  { token: "{title}", hintKey: "templates.token_title" },
+  { token: "{label}", hintKey: "templates.token_label" },
+  { token: "{date}", hintKey: "templates.token_date" },
+  { token: "{time}", hintKey: "templates.token_time" },
+  { token: "{day}", hintKey: "templates.token_day" },
+  { token: "{month}", hintKey: "templates.token_month" },
+  { token: "{year}", hintKey: "templates.token_year" },
+  { token: "%TITLE%", hintKey: "templates.token_title" },
+  { token: "%SLIDE_LABEL%", hintKey: "templates.token_label" },
+  { token: "%TEXT%", hintKey: "templates.token_text" },
+  { token: "%DATE%", hintKey: "templates.token_date" },
+  { token: "%TIME%", hintKey: "templates.token_time" },
+  { token: "%HOUR%", hintKey: "templates.token_hour" },
+  { token: "%MINUTE%", hintKey: "templates.token_minute" },
+  { token: "%SECOND%", hintKey: "templates.token_second" },
+  { token: "%DAY_OF_WEEK%", hintKey: "templates.token_day" },
+  { token: "%MONTH%", hintKey: "templates.token_month" },
+  { token: "%YEAR%", hintKey: "templates.token_year" },
 ];
 
 const BIBLE_TOKENS: { token: string; hintKey: string }[] = [
-  { token: "scripture_text", hintKey: "templates.token_scripture_text" },
-  { token: "scripture_reference", hintKey: "templates.token_scripture_reference" },
-  { token: "scripture_name", hintKey: "templates.token_scripture_name" },
-  { token: "scripture_book", hintKey: "templates.token_scripture_book" },
-  { token: "scripture_chapter", hintKey: "templates.token_scripture_chapter" },
-  { token: "scripture_verse", hintKey: "templates.token_scripture_verse" },
-  { token: "scripture_verses", hintKey: "templates.token_scripture_verses" },
-  { token: "label", hintKey: "templates.token_label" },
-  { token: "title", hintKey: "templates.token_title" },
-  { token: "date", hintKey: "templates.token_date" },
-  { token: "time", hintKey: "templates.token_time" },
-  { token: "day", hintKey: "templates.token_day" },
+  { token: "{scripture_text}", hintKey: "templates.token_scripture_text" },
+  { token: "{scripture_reference}", hintKey: "templates.token_scripture_reference" },
+  { token: "{scripture_name}", hintKey: "templates.token_scripture_name" },
+  { token: "{scripture_book}", hintKey: "templates.token_scripture_book" },
+  { token: "{scripture_chapter}", hintKey: "templates.token_scripture_chapter" },
+  { token: "{scripture_verse}", hintKey: "templates.token_scripture_verse" },
+  { token: "{scripture_verses}", hintKey: "templates.token_scripture_verses" },
+  { token: "{label}", hintKey: "templates.token_label" },
+  { token: "{title}", hintKey: "templates.token_title" },
+  { token: "{date}", hintKey: "templates.token_date" },
+  { token: "{time}", hintKey: "templates.token_time" },
+  { token: "{day}", hintKey: "templates.token_day" },
+  { token: "%SCRIPTURETEXT%", hintKey: "templates.token_scripture_text" },
+  { token: "%SCRIPTUREREF%", hintKey: "templates.token_scripture_reference" },
+  { token: "%BIBLENAME%", hintKey: "templates.token_scripture_name" },
+  { token: "%BIBLECHAPTER%", hintKey: "templates.token_scripture_chapter" },
+  { token: "%BIBLEVERSE%", hintKey: "templates.token_scripture_verse" },
+  { token: "%BIBLEVERSES%", hintKey: "templates.token_scripture_verses" },
+  { token: "%DATE%", hintKey: "templates.token_date" },
+  { token: "%TIME%", hintKey: "templates.token_time" },
+  { token: "%HOUR%", hintKey: "templates.token_hour" },
+  { token: "%MINUTE%", hintKey: "templates.token_minute" },
+  { token: "%SECOND%", hintKey: "templates.token_second" },
+  { token: "%DAY_OF_WEEK%", hintKey: "templates.token_day" },
+  { token: "%MONTH%", hintKey: "templates.token_month" },
+  { token: "%YEAR%", hintKey: "templates.token_year" },
 ];
 
 interface Props {
@@ -650,12 +675,12 @@ function ElementProps(props: {
                 onClick={() =>
                   onPatch({
                     content: el.content
-                      ? `${el.content} {${tk.token}}`
-                      : `{${tk.token}}`,
+                      ? `${el.content} ${tk.token}`
+                      : tk.token,
                   })
                 }
               >
-                {`{${tk.token}}`}
+                {tk.token}
               </button>
             ))}
           </div>

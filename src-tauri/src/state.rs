@@ -367,7 +367,7 @@ pub fn save_to_disk(app: &AppHandle, state: &AppState) {
             .map(|s| !s.is_dirty())
             .unwrap_or(true);
         if idle {
-            state.save.lock().map(|mut s| s.writer_finished());
+            let _ = state.save.lock().map(|mut s| s.writer_finished());
             return;
         }
         // Còn bẩn nhưng chưa đủ debounce → chờ thêm.

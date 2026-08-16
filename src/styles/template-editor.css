@@ -62,12 +62,12 @@ body,
 }
 
 .tpl-win-item:hover {
-  border-color: #3d4759;
+  border-color: var(--border-strong);
 }
 
 .tpl-win-item.sel {
   border-color: var(--accent);
-  background: rgba(79, 140, 255, 0.12);
+  background: var(--accent-soft);
 }
 
 .tpl-win-item .swatch {

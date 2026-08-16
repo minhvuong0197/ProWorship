@@ -1,3 +1,5 @@
+@import "./global.css";
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -106,7 +108,7 @@ body {
 }
 
 .stage-countdown.expired {
-  color: #e5534b;
+  color: var(--danger);
 }
 
 .stage-placeholder {
@@ -182,7 +184,7 @@ body {
 }
 
 .stage-timeline-row .overdue {
-  color: #e5534b;
+  color: var(--danger);
   font-weight: 700;
 }
 
@@ -197,18 +199,18 @@ body {
 .stage-timeline-fill {
   height: 100%;
   border-radius: 5px;
-  background: #3fb27f;
+  background: var(--success);
   transition: width 1s linear;
 }
 
 .stage-timeline-fill.overdue {
-  background: #e5534b;
+  background: var(--danger);
 }
 
 .stage-timeline-overdue {
   text-align: center;
   font-size: 12px;
-  color: #e5534b;
+  color: var(--danger);
   font-weight: 700;
   margin-top: 4px;
 }

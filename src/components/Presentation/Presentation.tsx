@@ -153,9 +153,6 @@ export default function Presentation() {
                 title={slide?.label || `${i + 1}`}
               >
                 <span className="presentation-grid-thumb">
-                  {slide?.label ? (
-                    <span className="presentation-grid-tag">{slide.label}</span>
-                  ) : null}
                   <PreviewSlide slide={slide} thumbnail />
                   <span
                     className="presentation-grid-strip"

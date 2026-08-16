@@ -5454,20 +5454,6 @@ button.sm {
   outline-offset: -1px;
 }
 
-.presentation-grid-tag {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  z-index: 3;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-}
-
 .presentation-grid-strip {
   position: absolute;
   left: 0;

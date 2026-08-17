@@ -131,6 +131,30 @@ button.danger:hover {
   border-color: var(--danger);
 }
 
+.live-preview .action-btn-clear-all:hover {
+  background: rgba(220, 20, 60, 0.25) !important;
+  border-color: var(--danger) !important;
+  transform: translateY(-1px);
+}
+
+.live-preview .action-btn-clear-slide:hover {
+  background: rgba(136, 136, 136, 0.3) !important;
+  border-color: #aaa !important;
+  transform: translateY(-1px);
+}
+
+.live-preview .action-btn-clear-bg:hover {
+  background: rgba(0, 170, 255, 0.25) !important;
+  border-color: #00aaff !important;
+  transform: translateY(-1px);
+}
+
+.live-preview .action-btn-clear-overlays:hover {
+  background: rgba(255, 170, 0, 0.25) !important;
+  border-color: #ffaa00 !important;
+  transform: translateY(-1px);
+}
+
 button.icon {
   padding: 4px 7px;
   line-height: 1;

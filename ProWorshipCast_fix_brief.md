@@ -1,7 +1,7 @@
 # Brief sửa lỗi/cải thiện — Pro WorshipCast
 
 Bối cảnh: đây là app trình chiếu thờ phượng (Tauri v2 + Rust backend + React/TS frontend,
-~21.5k dòng frontend, ~8.5k dòng Rust, có module C++ riêng cho NDI/video). Dưới đây là các
+~22.5k dòng frontend, ~9.2k dòng Rust, có module C++ riêng cho NDI/video). Dưới đây là các
 việc cần làm theo mức độ ưu tiên, dựa trên review code thực tế của repo.
 
 Hãy làm từng mục theo thứ tự, mỗi mục commit riêng, không gộp nhiều thay đổi không liên quan

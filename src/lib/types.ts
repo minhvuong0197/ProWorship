@@ -376,6 +376,7 @@ export interface AppSettings {
   default_template_id: string | null;
   default_bible_template_id?: string | null;
   output_template_id?: string | null;
+  output_monitor?: string | null;
   stage_show_clock: boolean;
   stage_show_next: boolean;
   stage_show_notes: boolean;

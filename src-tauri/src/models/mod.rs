@@ -657,6 +657,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub output_template_id: Option<String>,
     #[serde(default)]
+    pub output_monitor: Option<String>,
+    #[serde(default)]
     pub stage_show_clock: bool,
     #[serde(default)]
     pub stage_show_next: bool,
@@ -713,6 +715,7 @@ impl Default for AppSettings {
             default_template_id: None,
             default_bible_template_id: None,
             output_template_id: None,
+            output_monitor: None,
             stage_show_clock: true,
             stage_show_next: true,
             stage_show_notes: true,

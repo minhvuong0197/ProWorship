@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   default_transition: { kind: "fade", duration_ms: 500 },
   default_template_id: null,
   output_template_id: null,
+  output_monitor: null,
   stage_show_clock: true,
   stage_show_next: true,
   stage_show_notes: true,
@@ -35,6 +36,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const settings = useAppStore((s) => s.settings) ?? DEFAULT_SETTINGS;
   const setSettings = useAppStore((s) => s.setSettings);
   const templates = useAppStore((s) => s.templates);
+  const monitors = useAppStore((s) => s.monitors);
   const companionInfo = useAppStore((s) => s.companionInfo);
   const refreshCompanionInfo = useAppStore((s) => s.refreshCompanionInfo);
 
@@ -143,6 +145,26 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 {allTemplates.map((tp) => (
                   <option key={tp.id} value={tp.id}>
                     {tp.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+
+          <section>
+            <h3>{t("settings.outputMonitor")}</h3>
+            <label className="format-item">
+              {t("settings.outputMonitor")}
+              <select
+                value={settings.output_monitor ?? ""}
+                onChange={(e) =>
+                  updateSettings({ output_monitor: e.target.value || null })
+                }
+              >
+                <option value="">{t("toolbar.defaultMonitor")}</option>
+                {monitors.map((m) => (
+                  <option key={m.name ?? `${m.x}-${m.y}`} value={m.name ?? ""}>
+                    {m.name ?? t("toolbar.monitor")} ({m.width}x{m.height})
                   </option>
                 ))}
               </select>

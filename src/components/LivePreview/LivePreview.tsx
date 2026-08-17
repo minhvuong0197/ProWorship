@@ -20,6 +20,7 @@ export default function LivePreview() {
   const live = useAppStore((s) => s.live);
   const outputOpen = useAppStore((s) => s.outputOpen);
   const toggleOutput = useAppStore((s) => s.toggleOutput);
+  const clearLive = useAppStore((s) => s.clearLive);
   const stageOpen = useAppStore((s) => s.stageOpen);
   const openStage = useAppStore((s) => s.openStage);
   const closeStage = useAppStore((s) => s.closeStage);
@@ -149,12 +150,88 @@ export default function LivePreview() {
         )}
       </div>
 
-      {live?.next_text && (
-        <div className="preview-next">
-          <div className="next-label">{t("preview.next")} {live.next_label || ""}</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{live.next_text}</div>
-        </div>
-      )}
+      <div style={{ textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+        <button
+          className="action-btn-clear-all danger"
+          onClick={() => clearLive()}
+          title="Xóa tất cả"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            padding: '6px',
+            border: '1px solid var(--danger)',
+            background: 'rgba(220, 20, 60, 0.1)',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer'
+          }}
+        >
+          <Icon name="trash" size={14} />
+        </button>
+        <button
+          className="action-btn-clear-slide danger"
+          onClick={() => live && goLive({ ...live, current: null })}
+          title="Xóa slide"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            padding: '6px',
+            border: '1px solid #888',
+            background: 'rgba(136, 136, 136, 0.15)',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer'
+          }}
+        >
+          <Icon name="square" size={14} />
+        </button>
+        <button
+          className="action-btn-clear-bg danger"
+          onClick={() => live && goLive({ ...live, background: null })}
+          title="Xóa nền"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            padding: '6px',
+            border: '1px solid #00aaff',
+            background: 'rgba(0, 170, 255, 0.1)',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer'
+          }}
+        >
+          <Icon name="image" size={14} />
+        </button>
+        <button
+          className="action-btn-clear-overlays danger"
+          onClick={() => live && goLive({ ...live, active_overlays: [] })}
+          title="Xóa lớp phủ"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '6px',
+            padding: '6px',
+            border: '1px solid #ffaa00',
+            background: 'rgba(255, 170, 0, 0.1)',
+            transition: 'all 0.2s ease',
+            cursor: 'pointer'
+          }}
+        >
+          <Icon name="layers" size={14} />
+        </button>
+      </div>
 
       <div className="preview-section">
         <h3>{t("preview.navigation")}</h3>

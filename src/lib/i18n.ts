@@ -292,6 +292,7 @@ const vi: Dict = {
   "library.playAudio": "Phát làm nhạc nền",
   "library.backToShow": "Quay lại Show",
   "library.noArtist": "Không có nghệ sĩ",
+  "settings.outputMonitor": "Màn hình Output mặc định",
 
   "audio.mastering.title": "Bộ chỉnh âm thanh nâng cao (Audio Mastering & Ducking)",
   "audio.mastering.lufs": "Chuẩn hóa Loudness (Target LUFS)",
@@ -1010,6 +1011,7 @@ const en: Dict = {
   "library.playAudio": "Play as background",
   "library.backToShow": "Back to Show",
   "library.noArtist": "No artist",
+  "settings.outputMonitor": "Default output monitor",
 
   "audio.mastering.title": "Advanced audio mastering & ducking",
   "audio.mastering.lufs": "Loudness normalization (Target LUFS)",

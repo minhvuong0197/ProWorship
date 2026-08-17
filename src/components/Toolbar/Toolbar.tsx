@@ -13,16 +13,12 @@ interface Props {
 
 export default function Toolbar({ onOpenShortcuts }: Props) {
   const t = useT();
-  const monitors = useAppStore((s) => s.monitors);
+  const settings = useAppStore((s) => s.settings);
   const live = useAppStore((s) => s.live);
-  const outputOpen = useAppStore((s) => s.outputOpen);
-  const toggleOutput = useAppStore((s) => s.toggleOutput);
-  const clearLive = useAppStore((s) => s.clearLive);
   const setStageMessage = useAppStore((s) => s.setStageMessage);
   const startCountdown = useAppStore((s) => s.startCountdown);
   const stopCountdown = useAppStore((s) => s.stopCountdown);
 
-  const [monitorName, setMonitorName] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showCcli, setShowCcli] = useState(false);
@@ -60,28 +56,6 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
             <Icon name="keyboard" size={14} />
           </button>
         </div>
-      </div>
-
-      <div className="toolbar-group" title={t("toolbar.output")}>
-        <select
-          value={monitorName ?? ""}
-          onChange={(e) => setMonitorName(e.target.value || null)}
-        >
-          <option value="">{t("toolbar.defaultMonitor")}</option>
-          {monitors.map((m) => (
-            <option key={m.name ?? `${m.x}-${m.y}`} value={m.name ?? ""}>
-              {m.name ?? t("toolbar.monitor")} ({m.width}x{m.height})
-            </option>
-          ))}
-        </select>
-        <button
-          className={outputOpen ? "primary" : ""}
-          onClick={() => toggleOutput(monitorName)}
-          title={outputOpen ? t("toolbar.closeOutput") : t("toolbar.openOutput")}
-        >
-          <Icon name={outputOpen ? "x" : "screen"} className="btn-ic" />
-          {outputOpen ? t("toolbar.closeOutput") : t("toolbar.openOutput")}
-        </button>
       </div>
 
       <div className="toolbar-sep" />
@@ -176,10 +150,6 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
         <button onClick={() => setShowSettings(true)} title={t("toolbar.settings")}>
           <Icon name="gear" size={14} />
           <span>{t("toolbar.settings")}</span>
-        </button>
-        <button className="danger" onClick={() => clearLive()} title={t("toolbar.clearLive")}>
-          <Icon name="trash" size={14} />
-          <span>{t("toolbar.clearLive")}</span>
         </button>
       </div>
 

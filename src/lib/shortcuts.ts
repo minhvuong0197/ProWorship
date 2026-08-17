@@ -46,8 +46,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { action: "tab_overlays", category: "modules", combo: "Ctrl+6" },
   { action: "tab_functions", category: "modules", combo: "Ctrl+7" },
   { action: "tab_props", category: "modules", combo: "Ctrl+8" },
-  { action: "tab_obs", category: "modules", combo: "Ctrl+9" },
-  { action: "tab_playlists", category: "modules", combo: "Ctrl+0" },
+  { action: "tab_obs", category: "modules", combo: "Ctrl+9 / Ctrl+0" },
   { action: "next_module", category: "modules", combo: "Ctrl+Tab" },
   { action: "prev_module", category: "modules", combo: "Ctrl+Shift+Tab" },
   { action: "shortcuts_ref", category: "help", combo: "Ctrl+/ · F1" },
@@ -64,5 +63,4 @@ export const MODES_ORDER = [
   "functions",
   "props",
   "obs",
-  "projects",
 ] as const;

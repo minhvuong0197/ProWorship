@@ -4,13 +4,13 @@ export type ToolMode =
   | "overlays"
   | "functions"
   | "props"
-  | "obs"
-  | "projects";
+  | "obs";
 
 export type EditorKind = "songs" | "bible" | "media" | "audio";
 
 export type CenterView =
   | { kind: "show" }
+  | { kind: "library"; mode: LibraryMode }
   | { kind: "tool"; mode: ToolMode }
   | { kind: "editor"; editor: EditorKind; songId?: string | null };
 
@@ -22,7 +22,6 @@ export const TOOL_MODES: ToolMode[] = [
   "functions",
   "props",
   "obs",
-  "projects",
 ];
 
 export const MODE_ORDER: (LibraryMode | ToolMode)[] = [
@@ -35,7 +34,6 @@ export const MODE_ORDER: (LibraryMode | ToolMode)[] = [
   "functions",
   "props",
   "obs",
-  "projects",
 ];
 
 export const DRAG_SONG = "application/x-pwc-song";

@@ -3,6 +3,7 @@ import { useAppStore } from "./store/useAppStore";
 import { obsClient } from "./lib/obs";
 import Toolbar from "./components/Toolbar/Toolbar";
 import ModeBar from "./components/ModeBar/ModeBar";
+import ProjectPanel from "./components/Project/ProjectPanel";
 import LibraryPanel from "./components/Library/LibraryPanel";
 import SongEditor from "./components/SongEditor/SongEditor";
 import Presentation from "./components/Presentation/Presentation";
@@ -10,7 +11,6 @@ import EditPanel from "./components/Edit/EditPanel";
 import MediaLibrary from "./components/MediaLibrary/MediaLibrary";
 import AudioLibrary from "./components/AudioLibrary/AudioLibrary";
 import BiblePanel from "./components/BiblePanel/BiblePanel";
-import PlaylistPanel from "./components/Playlist/PlaylistPanel";
 import LivePreview from "./components/LivePreview/LivePreview";
 import ServiceBar from "./components/ServiceBar/ServiceBar";
 import AudioPlayer from "./components/AudioPlayer";
@@ -60,7 +60,6 @@ export default function App() {
   const setOutputLocked = useAppStore((s) => s.setOutputLocked);
   const refreshOutput = useAppStore((s) => s.refreshOutput);
   const setAudioState = useAppStore((s) => s.setAudioState);
-  const [libraryMode, setLibraryMode] = useState<LibraryMode>("songs");
   const [centerView, setCenterView] = useState<CenterView>({ kind: "show" });
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -88,8 +87,11 @@ export default function App() {
   }, [live?.current?.kind, settings, obsClient.status]);
 
   const onLibraryMode = (m: LibraryMode) => {
-    setLibraryMode(m);
-    if (centerView.kind !== "show") setCenterView({ kind: "show" });
+    setCenterView((prev) =>
+      prev.kind === "library" && prev.mode === m
+        ? { kind: "show" }
+        : { kind: "library", mode: m },
+    );
   };
 
   const onToolMode = (m: ToolMode) => {
@@ -189,7 +191,9 @@ export default function App() {
 
       const currentMode = (): LibraryMode | ToolMode => {
         if (centerView.kind === "tool") return centerView.mode;
-        return libraryMode;
+        if (centerView.kind === "library") return centerView.mode;
+        if (centerView.kind === "editor") return centerView.editor;
+        return "songs";
       };
 
       const applyMode = (m: LibraryMode | ToolMode) => {
@@ -217,13 +221,13 @@ export default function App() {
       }
       if (e.ctrlKey && e.key === "0") {
         e.preventDefault();
-        const next = MODE_ORDER[9];
+        const next = MODE_ORDER[MODE_ORDER.length - 1];
         if (next) applyMode(next);
         return;
       }
       if (e.ctrlKey && e.code === "Minus") {
         e.preventDefault();
-        const next = MODE_ORDER[9];
+        const next = MODE_ORDER[MODE_ORDER.length - 1];
         if (next) applyMode(next);
         return;
       }
@@ -255,7 +259,6 @@ export default function App() {
   }, [
     advanceLive,
     clearLive,
-    libraryMode,
     centerView,
     toggleOutput,
     setOutputLocked,
@@ -269,16 +272,20 @@ export default function App() {
     <div className="app-shell">
       <Toolbar onOpenShortcuts={() => setShowShortcuts(true)} />
       <ModeBar
-        libraryMode={libraryMode}
         centerView={centerView}
         onLibraryMode={onLibraryMode}
         onToolMode={onToolMode}
         onShow={onShow}
       />
       <div className="app-body">
-        <LibraryPanel mode={libraryMode} onOpenEditor={onOpenEditor} />
+        <ProjectPanel onSelectShow={onShow} />
         <main className="app-main">
           {centerView.kind === "show" && <Presentation />}
+          {centerView.kind === "library" && (
+            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
+              <LibraryPanel mode={centerView.mode} onOpenEditor={onOpenEditor} />
+            </PanelHost>
+          )}
           {centerView.kind === "tool" && centerView.mode === "edit" && (
             <PanelHost onBack={() => setCenterView({ kind: "show" })}>
               <EditPanel />
@@ -302,11 +309,6 @@ export default function App() {
           {centerView.kind === "tool" && centerView.mode === "obs" && (
             <PanelHost onBack={() => setCenterView({ kind: "show" })}>
               <ObsController />
-            </PanelHost>
-          )}
-          {centerView.kind === "tool" && centerView.mode === "projects" && (
-            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
-              <PlaylistPanel />
             </PanelHost>
           )}
           {centerView.kind === "editor" && centerView.editor === "songs" && (

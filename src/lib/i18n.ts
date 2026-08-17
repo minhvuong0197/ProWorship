@@ -294,6 +294,14 @@ const vi: Dict = {
   "library.noArtist": "Không có nghệ sĩ",
   "settings.outputMonitor": "Màn hình Output mặc định",
 
+  "project.title": "Dự án",
+  "project.add": "Dự án mới",
+  "project.newProject": "Dự án mới",
+  "project.empty": "Chưa có dự án nào.\nBấm \"+ Dự án mới\" để tạo.",
+  "project.noShows": "Kéo bài hát / Kinh Thánh / media từ toolbar vào đây để thêm Show.",
+  "project.toggle": "Mở/thu gọn dự án",
+  "project.present": "Chiếu Show này",
+
   "audio.mastering.title": "Bộ chỉnh âm thanh nâng cao (Audio Mastering & Ducking)",
   "audio.mastering.lufs": "Chuẩn hóa Loudness (Target LUFS)",
   "audio.mastering.lufsHint": "Mặc định -14 LUFS theo chuẩn YouTube/Livestream.",
@@ -1012,6 +1020,14 @@ const en: Dict = {
   "library.backToShow": "Back to Show",
   "library.noArtist": "No artist",
   "settings.outputMonitor": "Default output monitor",
+
+  "project.title": "Projects",
+  "project.add": "New project",
+  "project.newProject": "New project",
+  "project.empty": "No projects yet.\nClick \"+ New project\" to create one.",
+  "project.noShows": "Drag songs / Bible / media from the toolbar here to add a Show.",
+  "project.toggle": "Expand / collapse project",
+  "project.present": "Present this Show",
 
   "audio.mastering.title": "Advanced audio mastering & ducking",
   "audio.mastering.lufs": "Loudness normalization (Target LUFS)",

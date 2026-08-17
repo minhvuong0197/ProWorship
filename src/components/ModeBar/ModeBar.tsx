@@ -1,16 +1,13 @@
 import { useT } from "../../lib/i18n";
 import Icon from "../Icon/Icon";
 import type { IconName } from "../Icon/Icon";
-import {
-  LIBRARY_MODES,
-  TOOL_MODES,
-  type CenterView,
-  type LibraryMode,
-  type ToolMode,
+import type {
+  CenterView,
+  LibraryMode,
+  ToolMode,
 } from "../../lib/nav";
 
 interface Props {
-  libraryMode: LibraryMode;
   centerView: CenterView;
   onLibraryMode: (m: LibraryMode) => void;
   onToolMode: (m: ToolMode) => void;
@@ -30,17 +27,21 @@ const TOOL_TABS: { key: ToolMode; labelKey: string; icon: IconName }[] = [
   { key: "functions", labelKey: "tab.functions", icon: "grid" },
   { key: "props", labelKey: "tab.props", icon: "presentation" },
   { key: "obs", labelKey: "tab.obs", icon: "camera" },
-  { key: "projects", labelKey: "tab.playlists", icon: "list" },
 ];
 
 export default function ModeBar({
-  libraryMode,
   centerView,
   onLibraryMode,
   onToolMode,
   onShow,
 }: Props) {
   const t = useT();
+  const activeLibrary =
+    centerView.kind === "library"
+      ? centerView.mode
+      : centerView.kind === "editor"
+        ? centerView.editor
+        : null;
   return (
     <div className="modebar">
       <div className="modebar-group">
@@ -58,7 +59,7 @@ export default function ModeBar({
         {LIBRARY_TABS.map((x) => (
           <button
             key={x.key}
-            className={libraryMode === x.key ? "active" : ""}
+            className={activeLibrary === x.key ? "active" : ""}
             onClick={() => onLibraryMode(x.key)}
             title={t(x.labelKey)}
           >

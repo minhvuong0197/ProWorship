@@ -108,6 +108,21 @@ Ban đầu cân nhắc 6 module C++ (Video, Audio, Image, Text, Streaming, Perf 
 
 **Quyết định chống giật (2026-08-15):** khi **không bật chroma**, hiển thị **`<video>` trực tiếp** (compositor trình duyệt tự đồng bộ v-sync → mượt tuyệt đối); WebGPU **chỉ chạy khi bật chroma key**, dùng rvfc → `new VideoFrame` → present → `close()` ngay (không giữ frame). Đã xác nhận mượt cả Preview lẫn Output ở 1080p và 4K.
 
+### 5.2 Khi nào dùng Track 2, khi nào dùng Track 3 (quyết định runtime, 2026-08-19)
+
+Cả hai track **vẫn được giữ song song** — Track 2 (Rust decode → raw NV12 → WebGPU) là đường **fallback**, Track 3 (hybrid `<video>` + external texture) là đường **chính**. Không track nào bị loại:
+
+| Điều kiện runtime (`NativeVideo.tsx`) | Đường phát | Track |
+|---|---|---|
+| WebGPU có + `requestVideoFrameCallback` có | `startHybrid()` | **Track 3** (chính) |
+| WebGPU có + RVFC **không** có | `startPull()` + raw NV12 → `gpu.present()` | **Track 2** (fallback) |
+| `<video>` load asset/media protocol **thất bại** hoặc meta-timeout (6s) | `onError` → `startPull()` | **Track 2** (fallback) |
+| WebGPU **không** có | `startPull()` + JPEG → `drawFrame()` canvas 2D | libjpeg-turbo (fallback cũ, mục 4.4) |
+
+**Vì sao giữ Track 2:** (1) WebView2 chưa có RVFC trên mọi máy → nếu chỉ có Track 3 thì Output/preview mất video; (2) hybrid phụ thuộc browser HW decode + asset protocol — khi file không load được (codec lạ, đường dẫn lỗi) phải có đường decode bằng Rust C++ thay thế; (3) NDI auto-pump (mục A2) vẫn bơm từ decode loop Rust ở mọi chế độ.
+
+**Quy tắc cho người sửa sau:** không xoá `WebGpuVideoRenderer.present()` (Track 2) hay `presentVideoFrame()` (Track 3) riêng lẻ — hai hàm phục vụ 2 đường khác nhau. Khi sửa `NativeVideo.tsx`, giữ đúng thứ tự quyết định ở bảng trên.
+
 ---
 
 ## 6. NDI SDK — lưu ý về license
@@ -145,6 +160,7 @@ Ban đầu cân nhắc 6 module C++ (Video, Audio, Image, Text, Streaming, Perf 
 | 2026-08-15 | Bỏ `--autoplay-policy` (gây WebView2 env init fail) + thêm `crossOrigin="anonymous"` cho `<video>` |
 | 2026-08-15 | Media tab chống lag: lazy-load thumbnail (IntersectionObserver), content-visibility, preload="metadata" |
 | 2026-08-15 | Fix preview co khi phát nhạc nền: `.preview-canvas { flex:none; flex-shrink:0 }`, `.live-preview { overflow-y:auto }` |
+| 2026-08-19 | **A3 — Xác nhận Track 2/Track 3**: cả 2 đều cần giữ song song — Track 3 (hybrid `<video>`) là đường chính, Track 2 (Rust decode → NV12 → WebGPU) là fallback khi RVFC thiếu hoặc `<video>` không load được; thêm mục 5.2 ghi rõ bảng quyết định runtime |
 | 2026-08-19 | **A2 — NDI auto-pump**: decode loop tự bơm RGBA vào NDI sender khi NDI output bật (theo applied target của Output window), không cần `ndi_output_send_frame` tay; thêm `fill_frame_rgba_and_jpeg` (decode 1 lần cho cả NDI + JPEG), sink NDI vào `PlayerManager.set_ndi_sink`, `AppState.ndi` → `Arc<NdiOutput>`, counter `frames_sent` |
 | 2026-08-19 | Fix crash NDI @1080p: `data_size_in_bytes` và `line_stride_in_bytes` là **cùng union member** trong `NDIlib_video_frame_v2_t` — ghi `data_size` đè stride → SDK đọc hàng ở offset 8MB; chỉ set stride |
 | [Điền ngày] | Thêm Video Engine (FFmpeg) + NDI Output (C++ core qua cxx) |

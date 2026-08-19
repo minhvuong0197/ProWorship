@@ -112,9 +112,15 @@ Ban đầu cân nhắc 6 module C++ (Video, Audio, Image, Text, Streaming, Perf 
 
 ## 6. NDI SDK — lưu ý về license
 
-- NDI SDK (Vizrt/NewTek) có license riêng, không tự động cho phép tái phân phối trong sản phẩm khác.
-- **Trước khi phân phối/bán ProWorshipCast**, bắt buộc đọc kỹ NDI SDK License Agreement, xác nhận bản NDI SDK dùng trong build production được tải từ nguồn chính thức (không dùng bản mượn từ dự án khác như FreeShow) trừ khi đã xác nhận điều khoản phù hợp.
-- Trạng thái tại thời điểm viết file này: **[CẦN CẬP NHẬT — điền kết quả xác nhận license khi có]**.
+- NDI SDK (Vizrt NDI AB) có license riêng, không tự động cho phép tái phân phối trong sản phẩm khác.
+- **Kết quả xác nhận (2026-08-19):** đã đọc NDI SDK License Agreement (Vizrt NDI AB, bản 2024-11) tại `http://ndi.link/ndisdk_license`.
+  - **Nguồn SDK:** `Processing.NDI.Lib.x64.dll` (v6.3.2.0 = SDK 6.3.2, bản mới nhất lúc xác nhận) được tải từ nguồn chính thức Vizrt/NewTek — **không mượn từ dự án khác**. DLL bị gitignore (do license), người dùng phải tự đặt vào `src-tauri/resources/` khi clone repo (ghi trong README).
+  - **Quyền phân phối:** license cho phép phân phối object code của SDK **kèm theo Product** ("Bundled Product") dưới dạng royalty-free, với các điều kiện sau phải tuân thủ:
+    1. Giữ DLL trong thư mục app (hiện đặt trong `src-tauri/resources/` — đúng, **không** cài vào system path).
+    2. Include bản quyền NDI — file `Processing.NDI.Lib.Licenses.txt` đã đi kèm trong `resources/`.
+    3. **Chưa làm (TODO trước khi phát hành):** khi có UI chọn/dùng NDI, phải đặt link tới `https://ndi.video/` gần nơi dùng NDI + statement "NDI® is a registered trademark of Vizrt NDI AB".
+    4. Không sửa/short/reverse-engineer SDK; khi phát hành bản production phải dùng SDK < 30 ngày tuổi nếu có.
+  - **Kết luận:** license **cho phép** mô hình phân phối hiện tại (DLL nằm trong bundle app + Licenses.txt đi kèm), nhưng cần hoàn thành mục 3 ở trên trước khi phân phối/bán. Không chặn việc phát triển NDI tiếp.
 
 ---
 

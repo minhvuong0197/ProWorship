@@ -195,6 +195,50 @@ mod tests {
         assert!(!sender.is_null(), "ndi sender creation failed");
     }
 
+    /// A2 integration smoke test: with the NDI sink attached to the player,
+    /// decoded frames must be auto-pumped into the NDI sender without any
+    /// manual `ndi_output_send_frame` calls.
+    #[test]
+    fn ndi_auto_pump_sends_frames() {
+        use super::ndi::NdiOutput;
+        use super::player::PlayerManager;
+        use std::sync::Arc;
+        use std::time::{Duration, Instant};
+
+        let Some(path) = sample_video() else {
+            eprintln!("SKIP: no mp4 found in media dir");
+            return;
+        };
+        let path = path.to_string_lossy().to_string();
+
+        let ndi = Arc::new(NdiOutput::default());
+        ndi.start("pwcp-auto-pump-test").expect("ndi sender start failed");
+
+        let mgr = PlayerManager::default();
+        mgr.set_ndi_sink(Some(ndi.clone()));
+        let info = mgr.start(&path, true).unwrap();
+        mgr.set_target("output", 1280, 720);
+
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while ndi.frames_sent() == 0 && Instant::now() < deadline {
+            let _ = mgr.pull();
+            std::thread::sleep(Duration::from_millis(5));
+        }
+
+        let sent = ndi.frames_sent();
+        assert!(sent > 0, "no frames were auto-pumped into the NDI sender");
+        eprintln!(
+            "NDI AUTO-PUMP: {sent} frames sent in {:.1}s (fps {:.0}) for source {:.0}fps",
+            deadline.elapsed().as_secs_f64(),
+            sent as f64 / deadline.elapsed().as_secs_f64().max(0.001),
+            info.fps
+        );
+
+        mgr.stop_all();
+        ndi.stop();
+        assert!(!ndi.is_active());
+    }
+
     #[test]
     fn player_pull_pacing() {
         use super::player::{ChromaKey, PlayerManager};

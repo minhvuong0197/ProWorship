@@ -64,9 +64,12 @@ bool NdiSender::Impl::send_frame(const rust::Slice<const uint8_t> rgba, int32_t 
     frame.FourCC = NDIlib_FourCC_type_RGBA;
     frame.frame_rate_N = 60000;
     frame.frame_rate_D = 1001;
+    // NOTE: `line_stride_in_bytes` and `data_size_in_bytes` are the SAME union
+    // member in NDIlib_video_frame_v2_t. For uncompressed FourCCs we must set
+    // the stride only — writing data_size_in_bytes afterwards would overwrite
+    // the stride and make the SDK read rows at a huge offset (crash on 1080p).
     frame.line_stride_in_bytes = static_cast<int>(width * 4u);
     frame.p_data = const_cast<uint8_t*>(rgba.data());
-    frame.data_size_in_bytes = static_cast<int>(expected);
     NDIlib_send_send_video_v2(sender_, &frame);
     return true;
 }

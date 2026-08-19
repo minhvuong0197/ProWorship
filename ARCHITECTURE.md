@@ -145,6 +145,8 @@ Ban đầu cân nhắc 6 module C++ (Video, Audio, Image, Text, Streaming, Perf 
 | 2026-08-15 | Bỏ `--autoplay-policy` (gây WebView2 env init fail) + thêm `crossOrigin="anonymous"` cho `<video>` |
 | 2026-08-15 | Media tab chống lag: lazy-load thumbnail (IntersectionObserver), content-visibility, preload="metadata" |
 | 2026-08-15 | Fix preview co khi phát nhạc nền: `.preview-canvas { flex:none; flex-shrink:0 }`, `.live-preview { overflow-y:auto }` |
+| 2026-08-19 | **A2 — NDI auto-pump**: decode loop tự bơm RGBA vào NDI sender khi NDI output bật (theo applied target của Output window), không cần `ndi_output_send_frame` tay; thêm `fill_frame_rgba_and_jpeg` (decode 1 lần cho cả NDI + JPEG), sink NDI vào `PlayerManager.set_ndi_sink`, `AppState.ndi` → `Arc<NdiOutput>`, counter `frames_sent` |
+| 2026-08-19 | Fix crash NDI @1080p: `data_size_in_bytes` và `line_stride_in_bytes` là **cùng union member** trong `NDIlib_video_frame_v2_t` — ghi `data_size` đè stride → SDK đọc hàng ở offset 8MB; chỉ set stride |
 | [Điền ngày] | Thêm Video Engine (FFmpeg) + NDI Output (C++ core qua cxx) |
 | [Điền ngày] | Đổi RGBA thô → keyed format (JPEG màu + alpha mask) để giảm chi phí IPC |
 | [Điền ngày] | Gỡ StrictMode ở các cửa sổ NativeVideo, sửa lỗi giật chớp lúc khởi động |

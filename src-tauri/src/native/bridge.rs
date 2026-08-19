@@ -54,6 +54,16 @@ mod ffi {
         /// number of bytes written, or -1 on failure/EOF. `out` must be
         /// pre-sized.
         fn fill_jpeg_frame(self: Pin<&mut VideoDecoder>, out: &mut Vec<u8>, quality: u8) -> i64;
+        /// Decode ONE frame and produce both raw RGBA (for NDI) and JPEG (for
+        /// the WebView) from that same frame, so the NDI auto-pump does not
+        /// double decode. Returns the JPEG byte count, or -1 on failure/EOF.
+        /// Both buffers must be pre-sized to `out_width()*out_height()*4`.
+        fn fill_frame_rgba_and_jpeg(
+            self: Pin<&mut VideoDecoder>,
+            rgba: &mut Vec<u8>,
+            jpeg: &mut Vec<u8>,
+            quality: u8,
+        ) -> i64;
         /// Chroma path: encode the frame as a compact packed payload of two
         /// JPEGs (color + grayscale alpha mask) instead of raw RGBA. Returns
         /// the number of bytes written, or -1 on failure/EOF.

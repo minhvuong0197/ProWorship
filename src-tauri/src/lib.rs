@@ -241,6 +241,7 @@ pub fn run() {
             commands::native::ndi_output_send_frame,
             commands::native::ndi_output_stop,
             commands::native::ndi_output_active,
+            commands::native::ndi_output_frames_sent,
             commands::native::gpu_probe,
             commands::player::native_video_play,
             commands::player::native_video_stop,

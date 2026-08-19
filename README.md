@@ -151,9 +151,9 @@ write (`.tmp` + rename) để không hỏng file giữa chừng.
 
 Kiến trúc đã chừa sẵn chỗ để thêm mà **không cần đập lại code hiện tại**:
 
-- **NDI**: đã có khung xuất NDI thực chạy (`ndi_output_start/send_frame/stop` + smoke test). Còn
-  thiếu: tự động bơm frame từ video player/output vào sender (hiện phải gọi `ndi_output_send_frame`
-  thủ công).
+- **NDI**: đã có khung xuất NDI thực chạy (`ndi_output_start/send_frame/stop` + smoke test) và **tự động
+  bơm frame**: khi NDI bật, decode loop đẩy mỗi frame giải mã thẳng vào sender theo applied target của
+  Output window (không cần `ndi_output_send_frame` tay). Còn thiếu: UI bật/tắt NDI trên Output window.
 - **MIDI/OSC control** (foot pedal, bàn mixer): thêm crate `midir`/`rosc`, một command mới
   `trigger_next_slide` map vào cùng luồng `advance_live`.
 - **CCLI SongSelect import**: thêm command Rust gọi API CCLI, map kết quả vào `Song` (CCLI *log*

@@ -5,6 +5,7 @@
 //! `cpp/src/ndi_output.cpp` `NdiSender::send_frame` → NDI SDK
 //! (`NDIlib_send_send_video_v2`) → LAN receivers.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use crate::native::bridge;
@@ -17,6 +18,10 @@ unsafe impl Send for NdiBox {}
 #[derive(Default)]
 pub struct NdiOutput {
     sender: Mutex<Option<NdiBox>>,
+    /// Total frames accepted by `send_frame` since the last `start()`.
+    /// Reset to zero on every `start()`; used by the integration smoke test
+    /// and by the frontend status panel.
+    frames_sent: AtomicU64,
 }
 
 impl NdiOutput {
@@ -31,6 +36,7 @@ impl NdiOutput {
         if sender.is_null() {
             return Err("ndi: failed to create NDI sender".into());
         }
+        self.frames_sent.store(0, Ordering::Relaxed);
         *g = Some(NdiBox(sender));
         Ok(())
     }
@@ -39,7 +45,13 @@ impl NdiOutput {
     pub fn send_frame(&self, rgba: &[u8], width: i32, height: i32) -> Result<bool, String> {
         let g = self.sender.lock().map_err(|e| e.to_string())?;
         match g.as_ref() {
-            Some(b) => Ok(b.0.send_frame(rgba, width, height)),
+            Some(b) => {
+                let ok = b.0.send_frame(rgba, width, height);
+                if ok {
+                    self.frames_sent.fetch_add(1, Ordering::Relaxed);
+                }
+                Ok(ok)
+            }
             None => Err("ndi: sender chưa được bật".into()),
         }
     }
@@ -53,6 +65,11 @@ impl NdiOutput {
 
     pub fn is_active(&self) -> bool {
         self.sender.lock().map(|g| g.is_some()).unwrap_or(false)
+    }
+
+    /// Number of frames sent since the sender was started.
+    pub fn frames_sent(&self) -> u64 {
+        self.frames_sent.load(Ordering::Relaxed)
     }
 }
 
@@ -73,6 +90,16 @@ mod tests {
             out.send_frame(&rgba, w, h).unwrap_or(false),
             "send_frame returned false"
         );
+
+        // A full-size 1080p frame must also be accepted (regression for the
+        // auto-pump path which sends at the applied decode resolution).
+        let (w2, h2) = (1920, 1080);
+        let rgba2 = vec![0u8; (w2 * h2 * 4) as usize];
+        assert!(
+            out.send_frame(&rgba2, w2, h2).unwrap_or(false),
+            "send_frame(1080p) returned false"
+        );
+        assert!(out.frames_sent() >= 2, "frames_sent counter did not advance");
 
         // Double start must be rejected while active.
         assert!(out.start("pwcp-smoke-test-2").is_err());

@@ -42,13 +42,19 @@ pub fn native_ndi_probe(name: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Bật NDI output: tạo sender và giữ trong state cho tới khi `ndi_output_stop`.
+/// Bật NDI output: tạo sender, gắn sink vào player để mọi frame đã giải mã
+/// tự động được bơm lên NDI (theo resolution decode đang áp dụng — Output
+/// window drive target, xem mục 4.3 ARCHITECTURE.md).
 #[tauri::command]
 pub fn ndi_output_start(state: State<AppState>, name: String) -> Result<(), String> {
-    state.ndi.start(&name)
+    state.ndi.start(&name)?;
+    state.native_player.set_ndi_sink(Some(state.ndi.clone()));
+    Ok(())
 }
 
 /// Đẩy 1 frame RGBA lên NDI output đang bật. Trả về false nếu SDK từ chối frame.
+/// (Dùng khi muốn điều khiển tay; khi sink đã gắn vào player thì frame tự động
+/// được bơm, không cần gọi lệnh này.)
 #[tauri::command]
 pub fn ndi_output_send_frame(
     state: State<AppState>,
@@ -59,9 +65,10 @@ pub fn ndi_output_send_frame(
     state.ndi.send_frame(&rgba, width, height)
 }
 
-/// Tắt NDI output.
+/// Tắt NDI output: gỡ sink khỏi player rồi hủy sender.
 #[tauri::command]
 pub fn ndi_output_stop(state: State<AppState>) -> Result<(), String> {
+    state.native_player.set_ndi_sink(None);
     state.ndi.stop();
     Ok(())
 }
@@ -70,6 +77,12 @@ pub fn ndi_output_stop(state: State<AppState>) -> Result<(), String> {
 #[tauri::command]
 pub fn ndi_output_active(state: State<AppState>) -> Result<bool, String> {
     Ok(state.ndi.is_active())
+}
+
+/// Số frame đã được bơm vào NDI sender kể từ lúc bật output.
+#[tauri::command]
+pub fn ndi_output_frames_sent(state: State<AppState>) -> Result<u64, String> {
+    Ok(state.ndi.frames_sent())
 }
 
 /// TEMP: log the WebView2/WebGPU capability report collected by the frontend

@@ -35,6 +35,12 @@ public:
     // Decode the next frame, JPEG-encode it into `out`, and return the number
     // of bytes written, or -1 on failure/EOF. `out` must be pre-sized.
     int64_t fill_jpeg_frame(rust::Vec<uint8_t>& out, uint8_t quality);
+    // Decode ONE frame and produce both raw RGBA (for NDI) and JPEG (for the
+    // WebView) from that same frame, so the NDI auto-pump does not double
+    // decode. Returns the JPEG byte count, or -1 on failure/EOF. Both `rgba`
+    // and `jpeg` must be pre-sized to `out_width()*out_height()*4`.
+    int64_t fill_frame_rgba_and_jpeg(rust::Vec<uint8_t>& rgba, rust::Vec<uint8_t>& jpeg,
+                                     uint8_t quality);
     // Chroma path: encode the frame as a compact packed payload of two JPEGs
     // (color + grayscale alpha mask) instead of raw RGBA. Returns the number
     // of bytes written, or -1 on failure/EOF. `out` must be pre-sized.

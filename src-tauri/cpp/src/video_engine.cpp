@@ -66,6 +66,12 @@ public:
     // Decode the next frame, JPEG-encode it into `out`, and return the number
     // of bytes written, or -1 on failure/EOF. `out` must be pre-sized.
     int64_t fill_jpeg_frame(rust::Vec<uint8_t>& out, uint8_t quality);
+    // Decode ONE frame and produce both raw RGBA (for NDI) and JPEG (for the
+    // WebView) from that same frame, so the NDI auto-pump does not double
+    // decode. Returns the JPEG byte count, or -1 on failure/EOF. Both `rgba`
+    // and `jpeg` must be pre-sized to `out_width()*out_height()*4`.
+    int64_t fill_frame_rgba_and_jpeg(rust::Vec<uint8_t>& rgba, rust::Vec<uint8_t>& jpeg,
+                                     uint8_t quality);
     // Chroma path: encode the frame as a compact packed payload of two JPEGs
     // (color + grayscale alpha mask) instead of raw RGBA. Returns the number
     // of bytes written, or -1 on failure/EOF. `out` must be pre-sized.
@@ -593,6 +599,23 @@ int64_t VideoDecoder::Impl::fill_jpeg_frame(rust::Vec<uint8_t>& out, uint8_t qua
     return static_cast<int64_t>(jpeg_out_.size());
 }
 
+int64_t VideoDecoder::Impl::fill_frame_rgba_and_jpeg(rust::Vec<uint8_t>& rgba,
+                                                     rust::Vec<uint8_t>& jpeg,
+                                                     uint8_t quality) {
+    std::vector<uint8_t> raw;
+    if (!decode_rgba(raw)) return -1;
+    const int32_t w = target_w_ > 0 ? target_w_ : width_;
+    const int32_t h = target_h_ > 0 ? target_h_ : height_;
+    const size_t n = static_cast<size_t>(w) * h * 4;
+    if (rgba.size() < n) return -1;
+    std::memcpy(rgba.data(), raw.data(), n);
+    jpeg_out_.clear();
+    if (!encode_jpeg(jpeg_out_, raw, w, h, quality)) return -1;
+    if (jpeg.size() < jpeg_out_.size()) return -1;
+    std::memcpy(jpeg.data(), jpeg_out_.data(), jpeg_out_.size());
+    return static_cast<int64_t>(jpeg_out_.size());
+}
+
 // Chroma path: `decode_rgba` already keys the alpha channel (RGB untouched, so
 // the green background stays opaque in the color JPEG). The keyed alpha is
 // soft-edged, so a half-resolution mask is plenty accurate. It is shipped as a
@@ -714,6 +737,10 @@ bool VideoDecoder::fill_frame(rust::Vec<uint8_t>& out) {
 }
 int64_t VideoDecoder::fill_jpeg_frame(rust::Vec<uint8_t>& out, uint8_t quality) {
     return impl_->fill_jpeg_frame(out, quality);
+}
+int64_t VideoDecoder::fill_frame_rgba_and_jpeg(rust::Vec<uint8_t>& rgba, rust::Vec<uint8_t>& jpeg,
+                                               uint8_t quality) {
+    return impl_->fill_frame_rgba_and_jpeg(rgba, jpeg, quality);
 }
 int64_t VideoDecoder::fill_keyed_jpeg(rust::Vec<uint8_t>& out, uint8_t quality) {
     return impl_->fill_keyed_jpeg(out, quality);

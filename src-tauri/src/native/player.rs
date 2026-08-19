@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 
 use crate::native::bridge;
+use crate::native::ndi::NdiOutput;
 
 /// A `cxx` decoder is not `Send` by default; the wrapper marks the instance as
 /// safe to move into the decode thread. The decoder is only ever accessed from
@@ -40,6 +41,10 @@ pub struct PlayerCtl {
     /// Track 2: when set the decode loop ships raw RGBA (no JPEG encode) so
     /// the frontend can upload straight into a WebGPU texture.
     pub raw_rgba: bool,
+    /// When set, the decode loop auto-pumps every decoded frame into the NDI
+    /// sender (at the applied decode resolution) so network output requires no
+    /// manual `ndi_output_send_frame` calls from the frontend.
+    pub ndi: Option<Arc<NdiOutput>>,
 }
 
 #[derive(Serialize, Clone)]
@@ -80,6 +85,10 @@ pub struct ActivePlayer {
 #[derive(Default)]
 pub struct PlayerManager {
     pub active: Mutex<Option<ActivePlayer>>,
+    /// NDI sink to propagate into newly started players. `set_ndi_sink` also
+    /// updates the currently active player live, so starting NDI mid-playback
+    /// takes effect immediately.
+    pub ndi_sink: Mutex<Option<Arc<NdiOutput>>>,
 }
 
 impl PlayerManager {
@@ -122,10 +131,15 @@ impl PlayerManager {
         let fps = fps.clamp(5.0, 60.0);
         let duration = decoder.duration();
 
-        let shared = Arc::new(PlayerShared {
+let shared = Arc::new(PlayerShared {
             path: path.to_string(),
             control: Mutex::new(PlayerCtl {
                 looping: true,
+                ndi: self
+                    .ndi_sink
+                    .lock()
+                    .map(|g| g.clone())
+                    .unwrap_or_default(),
                 ..Default::default()
             }),
             latest: Mutex::new(None),
@@ -277,12 +291,26 @@ out.push(match f.format {
         });
     }
 
-    /// Track 2: switch the frame transport between raw RGBA (WebGPU path) and
+/// Track 2: switch the frame transport between raw RGBA (WebGPU path) and
     /// the legacy JPEG/keyed paths. Trigger a rebuild for a clean canvas.
     pub fn set_transport(&self, raw: bool) {
         let _ = self.with_active(|p| {
             if let Ok(mut c) = p.shared.control.lock() {
                 c.raw_rgba = raw;
+            }
+        });
+    }
+
+    /// Attach/detach the NDI auto-pump sink. `Some` makes the decode loop push
+    /// every decoded frame into the sender; `None` stops it. Takes effect on
+    /// the active player immediately and on the next `start()` for future ones.
+    pub fn set_ndi_sink(&self, sink: Option<Arc<NdiOutput>>) {
+        if let Ok(mut g) = self.ndi_sink.lock() {
+            *g = sink.clone();
+        }
+        let _ = self.with_active(|p| {
+            if let Ok(mut c) = p.shared.control.lock() {
+                c.ndi = sink;
             }
         });
     }
@@ -309,7 +337,7 @@ fn decode_loop(mut dec: DecoderBox, shared: Arc<PlayerShared>) {
     while !shared.stop.load(Ordering::Relaxed) {
         let t0 = Instant::now();
 
-        let (seek_to, chroma, paused, target, raw_rgba) = {
+let (seek_to, chroma, paused, target, raw_rgba, ndi) = {
             let mut c = match shared.control.lock() {
                 Ok(c) => c,
                 Err(_) => break,
@@ -320,6 +348,7 @@ fn decode_loop(mut dec: DecoderBox, shared: Arc<PlayerShared>) {
                 c.paused,
                 c.target,
                 c.raw_rgba,
+                c.ndi.clone(),
             )
         };
 
@@ -399,12 +428,31 @@ let (bytes, format) = if raw_rgba {
                 n = dec.0.pin_mut().fill_keyed_jpeg(&mut rgba_buf, 85);
             }
             (if n > 0 { rgba_buf[..n as usize].to_vec() } else { Vec::new() }, "keyed")
-        } else {
+} else {
             let cap = out_w as usize * out_h as usize * 4;
             if jpeg_buf.len() < cap {
                 jpeg_buf.resize(cap, 0);
             }
-            let n = dec.0.pin_mut().fill_jpeg_frame(&mut jpeg_buf, 85);
+            let ndi_active = ndi
+                .as_ref()
+                .map(|n| n.is_active())
+                .unwrap_or(false);
+            let n = if ndi_active {
+                // NDI auto-pump: decode once, hand the RGBA straight to the
+                // NDI sender and ship the JPEG from that same frame.
+                if rgba_buf.len() < cap {
+                    rgba_buf.resize(cap, 0);
+                }
+                let r = dec.0.pin_mut().fill_frame_rgba_and_jpeg(&mut rgba_buf, &mut jpeg_buf, 85);
+                if r > 0 {
+                    if let Some(n) = ndi.as_ref() {
+                        let _ = n.send_frame(&rgba_buf[..cap], out_w, out_h);
+                    }
+                }
+                r
+            } else {
+                dec.0.pin_mut().fill_jpeg_frame(&mut jpeg_buf, 85)
+            };
             if n > 0 {
                 (jpeg_buf[..n as usize].to_vec(), "jpeg")
             } else {

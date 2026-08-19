@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -124,7 +124,9 @@ pub struct AppState {
     pub ccli_log: Mutex<Vec<CcliLog>>,
     pub edit_shows: Mutex<Vec<EditShow>>,
     pub native_player: PlayerManager,
-    pub ndi: crate::native::ndi::NdiOutput,
+    /// Shared NDI sink: the player auto-pumps frames into it when NDI output
+    /// is on. `Arc` so the decode thread and the commands share the sender.
+    pub ndi: Arc<crate::native::ndi::NdiOutput>,
     pub save: Mutex<SaveCoalescer>,
 }
 
@@ -145,7 +147,7 @@ impl AppState {
             ccli_log: Mutex::new(Vec::new()),
             edit_shows: Mutex::new(Vec::new()),
             native_player: PlayerManager::default(),
-            ndi: crate::native::ndi::NdiOutput::default(),
+            ndi: Arc::new(crate::native::ndi::NdiOutput::default()),
             save: Mutex::new(SaveCoalescer::new()),
         }
     }

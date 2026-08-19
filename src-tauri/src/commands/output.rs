@@ -250,28 +250,41 @@ fn apply_entry_to_live(
                 live.slide_order = Some(order);
             }
         }
-        "media" => {
+"media" => {
             if let Some(m) = media.iter().find(|x| x.id == entry.ref_id) {
-                live.current = Some(LiveSlide {
-                    kind: "media".into(),
-                    title: m.name.clone(),
-                    text: None,
-                    label: None,
-                    media_path: Some(m.file_path.clone()),
-                    background: Some(m.file_path.clone()),
-                    notes: None,
-                    text_color: None,
-                    font_size: None,
-                    align: None,
-                    position: None,
-                    bg_color: None,
-                    bg_filter: None,
-layers: Vec::new(),
-                    elements: Vec::new(),
-        overrides: Vec::new(),
-                    formatting: None,
-                    bible_ref: None,
-                });
+                let has_text = live
+                    .current
+                    .as_ref()
+                    .map(|c| c.kind != "media" && c.text.as_deref().is_some_and(|t| !t.trim().is_empty()))
+                    .unwrap_or(false);
+                if has_text {
+                    // Giữ slide hiện tại (vd câu Kinh Thánh) nhưng đổi nền sang video.
+                    if let Some(cur) = live.current.as_mut() {
+                        cur.media_path = Some(m.file_path.clone());
+                        cur.background = Some(m.file_path.clone());
+                    }
+                } else {
+                    live.current = Some(LiveSlide {
+                        kind: "media".into(),
+                        title: m.name.clone(),
+                        text: None,
+                        label: None,
+                        media_path: Some(m.file_path.clone()),
+                        background: Some(m.file_path.clone()),
+                        notes: None,
+                        text_color: None,
+                        font_size: None,
+                        align: None,
+                        position: None,
+                        bg_color: None,
+                        bg_filter: None,
+                        layers: Vec::new(),
+                        elements: Vec::new(),
+                        overrides: Vec::new(),
+                        formatting: None,
+                        bible_ref: None,
+                    });
+                }
                 live.background = Some(m.file_path.clone());
                 live.media_playing = true;
             }
@@ -310,13 +323,31 @@ layers: Vec::new(),
                     None
                 };
                 if start > 0 {
-                    let verses: Vec<usize> = (start..=end).collect();
-                    if let Some(slide) = crate::bible::present_bible_selection_version(
+                    if start == end {
+                        if let Some(slide) = crate::bible::present_bible_selection_version(
+                            app,
+                            version.clone(),
+                            abbrev,
+                            chapter,
+                            vec![start],
+                        ) {
+                            live.current = Some(slide);
+                            live.next_text = None;
+                            live.next_label = None;
+                            live.media_playing = false;
+                            live.bible_version = version.clone();
+                            if let Some(cur) = live.current.as_mut() {
+                                apply_bible_style(app, state, cur, version.as_deref());
+                            }
+                        }
+                    } else if let Some(slide) = crate::bible::present_bible_verse_in_range(
                         app,
                         version.clone(),
                         abbrev,
                         chapter,
-                        verses,
+                        start,
+                        start,
+                        end,
                     ) {
                         live.current = Some(slide);
                         live.next_text = None;
@@ -417,8 +448,6 @@ pub fn advance_live(app: AppHandle, state: State<AppState>, dir: i32) -> Result<
             guard.song_slide_index = None;
             guard.song_slide_count = None;
             guard.slide_order = None;
-            guard.playlist_id = None;
-            guard.playlist_entry_index = None;
             let payload = guard.clone();
             drop(guard);
             sync_ccli_log(state.inner());
@@ -829,6 +858,29 @@ pub fn refresh_output(app: AppHandle, state: State<AppState>) -> Result<(), Stri
     Ok(())
 }
 
+/// Thuần: áp dụng "goto slide" lên `live`. Trả về `true` khi slide thực sự
+/// thay đổi (index hợp lệ và khác slide hiện tại) — test độc lập với Tauri.
+fn apply_goto_slide(
+    live: &mut LiveState,
+    song: &Song,
+    order: &[String],
+    index: usize,
+    default_tpl: Option<&Template>,
+    templates: &[Template],
+) -> bool {
+    if index >= order.len() || live.song_slide_index == Some(index) {
+        return false;
+    }
+    live.current = Some(slide_from_song(song, order, index, live, default_tpl, templates));
+    let (nt, nl) = next_of_song(song, order, index);
+    live.next_text = nt;
+    live.next_label = nl;
+    live.song_slide_index = Some(index);
+    live.song_slide_count = Some(order.len());
+    live.slide_order = Some(order.to_vec());
+    true
+}
+
 #[tauri::command]
 pub fn goto_slide(
     app: AppHandle,
@@ -838,7 +890,6 @@ pub fn goto_slide(
     let mut guard = state.live.lock().map_err(|e| e.to_string())?;
     let songs = state.songs.lock().map(|s| s.clone()).unwrap_or_default();
     let song_id = guard.song_id.clone();
-    let slide_idx = guard.song_slide_index;
     if let Some(song) = song_id
         .as_ref()
         .and_then(|sid| songs.iter().find(|s| &s.id == sid))
@@ -847,24 +898,16 @@ pub fn goto_slide(
             Some(o) if !o.is_empty() => o.clone(),
             _ => resolve_slide_order(song, guard.arrangement_id.as_deref()),
         };
-        if index < order.len() && slide_idx != Some(index) {
-            let templates = state
-                .templates
-                .lock()
-                .map(|t| t.clone())
-                .unwrap_or_default();
-            let default_tpl = default_template_in(
-                &templates,
-                &state.settings.lock().map(|s| s.clone()).unwrap_or_default(),
-            );
-            guard.current = Some(slide_from_song(song, &order, index, &guard, default_tpl, &templates));
-            let (nt, nl) = next_of_song(song, &order, index);
-            guard.next_text = nt;
-            guard.next_label = nl;
-            guard.song_slide_index = Some(index);
-            guard.song_slide_count = Some(order.len());
-            guard.slide_order = Some(order);
-        }
+        let templates = state
+            .templates
+            .lock()
+            .map(|t| t.clone())
+            .unwrap_or_default();
+        let default_tpl = default_template_in(
+            &templates,
+            &state.settings.lock().map(|s| s.clone()).unwrap_or_default(),
+        );
+        apply_goto_slide(&mut guard, song, &order, index, default_tpl, &templates);
     }
     let payload = guard.clone();
     drop(guard);
@@ -923,6 +966,16 @@ pub fn present_song(
     Ok(payload)
 }
 
+/// Thuần: quyết định của `goto_playlist_entry` — `Some(index)` nếu playlist
+/// tồn tại và có entry tại index, `None` nếu không.
+fn plan_goto_entry(playlists: &[Playlist], playlist_id: &str, index: usize) -> Option<usize> {
+    playlists
+        .iter()
+        .find(|p| p.id == playlist_id)
+        .and_then(|p| p.entries.get(index))
+        .map(|_| index)
+}
+
 #[tauri::command]
 pub fn goto_playlist_entry(
     app: AppHandle,
@@ -932,11 +985,13 @@ pub fn goto_playlist_entry(
 ) -> Result<LiveState, String> {
     let mut guard = state.live.lock().map_err(|e| e.to_string())?;
     let playlists = state.playlists.lock().map(|p| p.clone()).unwrap_or_default();
-    if let Some(playlist) = playlists.iter().find(|p| &p.id == &playlist_id) {
-        if let Some(entry) = playlist.entries.get(index).cloned() {
-            guard.playlist_id = Some(playlist_id);
-            guard.playlist_entry_index = Some(index);
-            apply_entry_to_live(&app, state.inner(), &mut guard, &entry, index, 1);
+    if let Some(idx) = plan_goto_entry(&playlists, &playlist_id, index) {
+        if let Some(playlist) = playlists.iter().find(|p| &p.id == &playlist_id) {
+            if let Some(entry) = playlist.entries.get(idx).cloned() {
+                guard.playlist_id = Some(playlist_id);
+                guard.playlist_entry_index = Some(idx);
+                apply_entry_to_live(&app, state.inner(), &mut guard, &entry, idx, 1);
+            }
         }
     }
     let payload = guard.clone();
@@ -994,6 +1049,36 @@ pub fn stop_service_timeline(app: AppHandle, state: State<AppState>) -> Result<L
 /// estimated duration has elapsed while the service timeline is running.
 /// Called periodically by a background thread. No-op when there is no live
 /// playlist, the timeline is not running, or the entry has no duration set.
+/// Thuần: quyết định của `auto_advance_service` — trả về index entry kế nếu
+/// entry hiện tại đã hết thời lượng ước tính, `None` nếu chưa tới hoặc không
+/// áp dụng (chưa bắt đầu service, đang khoá output, không có playlist/entry).
+fn plan_auto_advance(
+    now: u64,
+    output_locked: bool,
+    service_started_at: Option<u64>,
+    playlist_id: Option<&str>,
+    playlist_entry_index: Option<usize>,
+    entries_len: usize,
+    entry: Option<(Option<u64>, Option<u64>)>,
+) -> Option<usize> {
+    if output_locked || service_started_at.is_none() {
+        return None;
+    }
+    let eidx = playlist_entry_index?;
+    playlist_id?;
+    let (est, started_at) = entry?;
+    let est = est?;
+    let started_at = started_at?;
+    if now < started_at + est * 1000 {
+        return None;
+    }
+    if eidx + 1 < entries_len {
+        Some(eidx + 1)
+    } else {
+        None
+    }
+}
+
 pub fn auto_advance_service(app: &AppHandle, state: &AppState) {
     let now = now_millis();
 
@@ -1002,39 +1087,34 @@ pub fn auto_advance_service(app: &AppHandle, state: &AppState) {
             Ok(g) => g,
             Err(_) => return,
         };
-        if live.output_locked || live.service_started_at.is_none() {
-            return;
-        }
-        let pid = match &live.playlist_id {
-            Some(p) => p.clone(),
-            None => return,
+        let pid = live.playlist_id.clone();
+        let eidx = live.playlist_entry_index;
+        let entries_len = {
+            let playlists = match state.playlists.lock() {
+                Ok(p) => p,
+                Err(_) => return,
+            };
+            pid.as_ref()
+                .and_then(|p| playlists.iter().find(|pl| pl.id == *p))
+                .map(|pl| pl.entries.len())
+                .unwrap_or(0)
         };
-        let eidx = match live.playlist_entry_index {
-            Some(i) => i,
-            None => return,
+        let entry = {
+            let playlists = state.playlists.lock().map(|p| p.clone()).unwrap_or_default();
+            pid.as_ref()
+                .and_then(|p| playlists.iter().find(|pl| pl.id == *p))
+                .and_then(|pl| pl.entries.get(eidx?))
+                .map(|e| (e.estimated_duration_sec, e.actual_start_time))
         };
-        let playlists = match state.playlists.lock() {
-            Ok(p) => p,
-            Err(_) => return,
-        };
-        let playlist = match playlists.iter().find(|p| p.id == pid) {
-            Some(p) => p,
-            None => return,
-        };
-        let entry = match playlist.entries.get(eidx) {
-            Some(e) => e,
-            None => return,
-        };
-        match (entry.estimated_duration_sec, entry.actual_start_time) {
-            (Some(est), Some(started_at)) if now >= started_at + est * 1000 => {
-                if eidx + 1 < playlist.entries.len() {
-                    Some(eidx + 1)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        }
+        plan_auto_advance(
+            now,
+            live.output_locked,
+            live.service_started_at,
+            pid.as_deref(),
+            eidx,
+            entries_len,
+            entry,
+        )
     };
 
     let Some(next) = advance_to else { return };
@@ -1265,7 +1345,7 @@ pub async fn close_template_editor_window(app: AppHandle) -> Result<(), String> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Playlist, PlaylistEntry, Song, SongSlide};
+    use crate::models::{LiveSlide, LiveState, Playlist, PlaylistEntry, Song, SongSlide, Template};
 
     fn slide(id: &str) -> SongSlide {
         SongSlide {
@@ -1417,5 +1497,277 @@ mod tests {
             AdvanceTarget::Entry { entry_idx } => assert_eq!(entry_idx, 1),
             other => panic!("expected Entry, got {other:?}"),
         }
+    }
+
+    fn live_slide(kind: &str) -> LiveSlide {
+        LiveSlide {
+            kind: kind.into(),
+            title: String::new(),
+            text: None,
+            label: None,
+            media_path: None,
+            background: None,
+            notes: None,
+            text_color: None,
+            font_size: None,
+            align: None,
+            position: None,
+            bg_color: None,
+            bg_filter: None,
+            layers: Vec::new(),
+            elements: Vec::new(),
+            overrides: Vec::new(),
+            formatting: None,
+            bible_ref: None,
+        }
+    }
+
+    fn live_state() -> LiveState {
+        LiveState::default()
+    }
+
+    fn tpl(id: &str, category: &str, first_template_id: Option<&str>) -> Template {
+        Template {
+            id: id.into(),
+            name: id.into(),
+            category: category.into(),
+            bg_color: "white".into(),
+            text_color: "black".into(),
+            font_size: 40,
+            align: "center".into(),
+            position: "center".into(),
+            bg_filter: "blur".into(),
+            elements: Vec::new(),
+            overrides: Vec::new(),
+            first_template_id: first_template_id.map(|s| s.into()),
+        }
+    }
+
+    fn tpl_plain(id: &str, category: &str) -> Template {
+        Template {
+            id: id.into(),
+            name: id.into(),
+            category: category.into(),
+            bg_color: String::new(),
+            text_color: String::new(),
+            font_size: 0,
+            align: String::new(),
+            position: String::new(),
+            bg_filter: String::new(),
+            elements: Vec::new(),
+            overrides: Vec::new(),
+            first_template_id: None,
+        }
+    }
+
+    // ---- apply_goto_slide ----
+
+    #[test]
+    fn goto_slide_valid_index_changes_slide() {
+        let s = song("s1", &["a", "b", "c"]);
+        let order = order(&["a", "b", "c"]);
+        let mut live = live_state();
+        live.song_slide_index = Some(0);
+        let changed = apply_goto_slide(&mut live, &s, &order, 2, None, &[]);
+        assert!(changed);
+        assert_eq!(live.song_slide_index, Some(2));
+        assert_eq!(live.song_slide_count, Some(3));
+        assert!(live.current.as_ref().unwrap().text.as_deref() == Some("text-c"));
+        assert_eq!(live.next_text.as_deref(), None); // last slide
+    }
+
+    #[test]
+    fn goto_slide_same_index_no_change() {
+        let s = song("s1", &["a", "b", "c"]);
+        let order = order(&["a", "b", "c"]);
+        let mut live = live_state();
+        live.song_slide_index = Some(1);
+        let changed = apply_goto_slide(&mut live, &s, &order, 1, None, &[]);
+        assert!(!changed);
+        assert_eq!(live.song_slide_index, Some(1));
+    }
+
+    #[test]
+    fn goto_slide_out_of_bounds_no_change() {
+        let s = song("s1", &["a", "b", "c"]);
+        let order = order(&["a", "b", "c"]);
+        let mut live = live_state();
+        live.song_slide_index = Some(0);
+        let changed = apply_goto_slide(&mut live, &s, &order, 5, None, &[]);
+        assert!(!changed);
+        assert_eq!(live.song_slide_index, Some(0));
+    }
+
+    #[test]
+    fn goto_slide_empty_order_no_change() {
+        let s = song("s1", &[]);
+        let mut live = live_state();
+        let changed = apply_goto_slide(&mut live, &s, &[], 0, None, &[]);
+        assert!(!changed);
+    }
+
+    // ---- apply_template_to_slide ----
+
+    #[test]
+    fn template_slide_tpl_beats_default() {
+        let default = tpl("d", "lyric", None);
+        let slide_tpl = tpl("s", "lyric", None);
+        let mut slide = live_slide("song");
+        apply_template_to_slide(&mut slide, Some(&default), Some(&slide_tpl), None);
+        assert_eq!(slide.text_color.as_deref(), Some("black"));
+        assert_eq!(slide.bg_color.as_deref(), Some("white"));
+    }
+
+    #[test]
+    fn template_default_used_when_no_slide_tpl() {
+        let default = tpl("d", "lyric", None);
+        let mut slide = live_slide("song");
+        apply_template_to_slide(&mut slide, Some(&default), None, None);
+        assert_eq!(slide.text_color.as_deref(), Some("black"));
+        assert_eq!(slide.font_size, Some(40));
+    }
+
+    #[test]
+    fn template_first_tpl_overrides_all() {
+        let default = tpl("d", "lyric", Some("first"));
+        let slide_tpl = tpl("s", "lyric", None);
+        let first = tpl("first", "lyric", None);
+        let mut slide = live_slide("song");
+        apply_template_to_slide(&mut slide, Some(&default), Some(&slide_tpl), Some(&first));
+        assert_eq!(slide.text_color.as_deref(), Some("black"));
+    }
+
+    #[test]
+    fn template_empty_bg_filter_becomes_none() {
+        let t = tpl_plain("p", "lyric");
+        let mut slide = live_slide("song");
+        apply_template_to_slide(&mut slide, Some(&t), None, None);
+        assert_eq!(slide.bg_filter, None);
+    }
+
+    #[test]
+    fn template_no_template_no_change() {
+        let mut slide = live_slide("song");
+        slide.text_color = Some("red".into());
+        apply_template_to_slide(&mut slide, None, None, None);
+        assert_eq!(slide.text_color.as_deref(), Some("red"));
+    }
+
+    // ---- plan_goto_entry ----
+
+    #[test]
+    fn goto_entry_valid_index() {
+        let p = playlist("p1", &["s1", "s2"]);
+        assert_eq!(plan_goto_entry(&[p.clone()], "p1", 1), Some(1));
+    }
+
+    #[test]
+    fn goto_entry_unknown_playlist_none() {
+        let p = playlist("p1", &["s1", "s2"]);
+        assert_eq!(plan_goto_entry(&[p.clone()], "nope", 0), None);
+    }
+
+    #[test]
+    fn goto_entry_out_of_range_none() {
+        let p = playlist("p1", &["s1", "s2"]);
+        assert_eq!(plan_goto_entry(&[p.clone()], "p1", 9), None);
+    }
+
+    #[test]
+    fn goto_entry_empty_playlist_none() {
+        let p = playlist("p1", &[]);
+        assert_eq!(plan_goto_entry(&[p], "p1", 0), None);
+    }
+
+    // ---- plan_auto_advance ----
+
+    fn timed_entry(id: &str, est: Option<u64>, started: Option<u64>) -> PlaylistEntry {
+        PlaylistEntry {
+            id: id.into(),
+            kind: "song".into(),
+            ref_id: id.into(),
+            title: id.into(),
+            estimated_duration_sec: est,
+            actual_start_time: started,
+            arrangement_id: None,
+            text: None,
+        }
+    }
+
+    #[test]
+    fn auto_advance_not_started_none() {
+        let now = 100_000;
+        assert_eq!(
+            plan_auto_advance(now, false, None, Some("p"), Some(0), 2, None),
+            None
+        );
+    }
+
+    #[test]
+    fn auto_advance_locked_none() {
+        let now = 100_000;
+        assert_eq!(
+            plan_auto_advance(now, true, Some(0), Some("p"), Some(0), 2, None),
+            None
+        );
+    }
+
+    #[test]
+    fn auto_advance_not_elapsed_none() {
+        let now = 5_000;
+        let e = timed_entry("s1", Some(10), Some(0));
+        assert_eq!(
+            plan_auto_advance(now, false, Some(0), Some("p"), Some(0), 2, Some((e.estimated_duration_sec, e.actual_start_time))),
+            None
+        );
+    }
+
+    #[test]
+    fn auto_advance_elapsed_advances() {
+        let now = 11_000;
+        let e = timed_entry("s1", Some(10), Some(0));
+        assert_eq!(
+            plan_auto_advance(now, false, Some(0), Some("p"), Some(0), 2, Some((e.estimated_duration_sec, e.actual_start_time))),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn auto_advance_last_entry_none() {
+        let now = 100_000;
+        let e = timed_entry("s2", Some(10), Some(0));
+        assert_eq!(
+            plan_auto_advance(now, false, Some(0), Some("p"), Some(1), 2, Some((e.estimated_duration_sec, e.actual_start_time))),
+            None
+        );
+    }
+
+    #[test]
+    fn auto_advance_missing_entry_none() {
+        let now = 100_000;
+        assert_eq!(
+            plan_auto_advance(now, false, Some(0), Some("p"), Some(0), 2, None),
+            None
+        );
+    }
+
+    #[test]
+    fn auto_advance_missing_start_time_none() {
+        let now = 100_000;
+        let e = timed_entry("s1", Some(10), None);
+        assert_eq!(
+            plan_auto_advance(now, false, Some(0), Some("p"), Some(0), 2, Some((e.estimated_duration_sec, e.actual_start_time))),
+            None
+        );
+    }
+
+    #[test]
+    fn auto_advance_no_playlist_none() {
+        let now = 100_000;
+        let e = timed_entry("s1", Some(10), Some(0));
+        assert_eq!(
+            plan_auto_advance(now, false, Some(0), None, Some(0), 2, Some((e.estimated_duration_sec, e.actual_start_time))),
+            None
+        );
     }
 }

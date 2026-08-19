@@ -919,13 +919,26 @@ setInterval(refreshAll, 250);
     html
 }
 
-fn is_authorized(req: &Request, api_key: &str) -> bool {
+fn api_key_ok(headers: &[Header], api_key: &str) -> bool {
     if api_key.is_empty() {
         return true;
     }
-    req.headers()
+    headers
         .iter()
         .any(|h| h.field.equiv("X-API-Key") && h.value.as_str() == api_key)
+}
+
+fn is_authorized(req: &Request, api_key: &str) -> bool {
+    api_key_ok(req.headers(), api_key)
+}
+
+/// True nếu PIN rỗng (không cài mật khẩu) hoặc header `X-Church-Token` khớp
+/// PIN. Tách thành hàm thuần để test được luồng xác thực — xem module test.
+fn church_token_ok(headers: &[Header], pin: &str) -> bool {
+    pin.is_empty()
+        || headers.iter().any(|h| {
+            h.field.equiv("X-Church-Token") && h.value.as_str() == pin
+        })
 }
 
 fn auth_ok(req: &Request, api_key: &str) -> Result<(), Response<io::Cursor<Vec<u8>>>> {
@@ -1393,13 +1406,7 @@ fn handle(app: AppHandle, mut req: Request) {
         let live = state.live.lock().map(|g| g.clone()).unwrap_or_default();
         let songs = state.songs.lock().map(|g| g.clone()).unwrap_or_default();
 
-        let mut pass_ok = pin.is_empty();
-        if !pass_ok {
-            pass_ok = req.headers().iter().any(|h| {
-                h.field.equiv("X-Church-Token") && h.value.as_str() == pin
-            });
-        }
-        if !pass_ok {
+        if !church_token_ok(req.headers(), &pin) {
             let _ = req.respond(json_response(StatusCode(401), "{\"error\":\"unauthorized\"}".to_string()));
             return;
         }
@@ -1575,13 +1582,7 @@ fn handle(app: AppHandle, mut req: Request) {
 
     // Kinh thánh cho Church App (dùng chung khoá)
     if url.starts_with("/api/companion/bible") {
-        let mut pass_ok = pin.is_empty();
-        if !pass_ok {
-            pass_ok = req.headers().iter().any(|h| {
-                h.field.equiv("X-Church-Token") && h.value.as_str() == pin
-            });
-        }
-        if !pass_ok {
+        if !church_token_ok(req.headers(), &pin) {
             let _ = req.respond(json_response(StatusCode(401), "{\"error\":\"unauthorized\"}".to_string()));
             return;
         }
@@ -2505,4 +2506,177 @@ fn merge_slide_style(
         slide.overrides = fmt.overrides;
     }
     slide
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn header(field: &str, value: &str) -> Header {
+        Header::from_bytes(field.as_bytes(), value.as_bytes())
+            .unwrap_or_else(|_| panic!("invalid header {field}: {value}"))
+    }
+
+    fn token_headers(pin: &str) -> Vec<Header> {
+        vec![header("X-Church-Token", pin)]
+    }
+
+    #[test]
+    fn token_empty_pin_allows_any_request() {
+        assert!(church_token_ok(&[], ""));
+        assert!(church_token_ok(&token_headers("anything"), ""));
+    }
+
+    #[test]
+    fn token_correct_pin_passes() {
+        assert!(church_token_ok(&token_headers("1234"), "1234"));
+    }
+
+    #[test]
+    fn token_wrong_pin_fails() {
+        assert!(!church_token_ok(&token_headers("0000"), "1234"));
+    }
+
+    #[test]
+    fn token_missing_header_fails_when_pin_set() {
+        assert!(!church_token_ok(&[], "1234"));
+    }
+
+    #[test]
+    fn token_other_headers_do_not_matter() {
+        let headers = vec![
+            header("Host", "localhost"),
+            header("Content-Type", "application/json"),
+        ];
+        assert!(!church_token_ok(&headers, "1234"));
+        let headers = vec![
+            header("Host", "localhost"),
+            header("X-Church-Token", "1234"),
+        ];
+        assert!(church_token_ok(&headers, "1234"));
+    }
+
+    #[test]
+    fn token_empty_pin_with_wrong_token_passes() {
+        // PIN rỗng nghĩa là không cài mật khẩu → bỏ qua header.
+        assert!(church_token_ok(&token_headers(""), ""));
+    }
+
+    #[test]
+    fn api_key_empty_allows() {
+        assert!(api_key_ok(&[], ""));
+    }
+
+    #[test]
+    fn api_key_correct_passes() {
+        assert!(api_key_ok(&[header("X-API-Key", "sekret")], "sekret"));
+    }
+
+    #[test]
+    fn api_key_wrong_fails() {
+        assert!(!api_key_ok(&[header("X-API-Key", "wrong")], "sekret"));
+    }
+
+    #[test]
+    fn api_key_missing_header_fails() {
+        assert!(!api_key_ok(&[], "sekret"));
+    }
+
+    // ---- parse_query / percent_decode ----
+
+    #[test]
+    fn query_parses_pairs() {
+        let m = parse_query("a=1&b=2&c=");
+        assert_eq!(m.get("a").map(String::as_str), Some("1"));
+        assert_eq!(m.get("b").map(String::as_str), Some("2"));
+        assert_eq!(m.get("c").map(String::as_str), Some(""));
+    }
+
+    #[test]
+    fn query_empty_returns_empty_map() {
+        let m = parse_query("");
+        assert!(m.is_empty());
+    }
+
+    #[test]
+    fn query_percent_encoded_decoded() {
+        let m = parse_query("q=Kinh%20Th%C3%A1nh");
+        assert_eq!(m.get("q").map(String::as_str), Some("Kinh Thánh"));
+    }
+
+    #[test]
+    fn percent_decode_handles_bad_escape() {
+        assert_eq!(percent_decode("a%zz"), "a%zz");
+        assert_eq!(percent_decode("100%"), "100%");
+    }
+
+    // ---- resolve_song_order ----
+
+    fn slide(id: &str) -> crate::models::SongSlide {
+        crate::models::SongSlide {
+            id: id.into(),
+            label: id.into(),
+            text: String::new(),
+            notes: String::new(),
+            template_id: None,
+            layers: Vec::new(),
+            formatting: None,
+            background: None,
+        }
+    }
+
+    fn song(id: &str, slide_ids: &[&str]) -> crate::models::Song {
+        crate::models::Song {
+            id: id.into(),
+            title: id.into(),
+            artist: String::new(),
+            key: String::new(),
+            ccli: String::new(),
+            copyright: String::new(),
+            slides: slide_ids.iter().map(|s| slide(s)).collect(),
+            arrangements: Vec::new(),
+            template_id: None,
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
+
+    fn song_with_arrangement(s: &mut crate::models::Song, aid: &str, order: &[&str]) {
+        s.arrangements.push(crate::models::SongArrangement {
+            id: aid.into(),
+            name: aid.into(),
+            order: order.iter().map(|x| x.to_string()).collect(),
+        });
+    }
+
+    #[test]
+    fn order_defaults_to_slides_in_order() {
+        let s = song("s1", &["a", "b", "c"]);
+        assert_eq!(resolve_song_order(&s, None), order_str(&["a", "b", "c"]));
+    }
+
+    #[test]
+    fn order_uses_arrangement_when_matching() {
+        let mut s = song("s1", &["a", "b", "c"]);
+        song_with_arrangement(&mut s, "arr1", &["c", "a"]);
+        assert_eq!(resolve_song_order(&s, Some("arr1")), order_str(&["c", "a"]));
+    }
+
+    #[test]
+    fn order_unknown_arrangement_falls_back() {
+        let mut s = song("s1", &["a", "b", "c"]);
+        song_with_arrangement(&mut s, "arr1", &["c", "a"]);
+        assert_eq!(resolve_song_order(&s, Some("nope")), order_str(&["a", "b", "c"]));
+    }
+
+    #[test]
+    fn order_empty_arrangement_falls_back() {
+        let mut s = song("s1", &["a", "b", "c"]);
+        song_with_arrangement(&mut s, "arr1", &[]);
+        assert_eq!(resolve_song_order(&s, Some("arr1")), order_str(&["a", "b", "c"]));
+    }
+
+    fn order_str(ids: &[&str]) -> Vec<String> {
+        ids.iter().map(|x| x.to_string()).collect()
+    }
 }

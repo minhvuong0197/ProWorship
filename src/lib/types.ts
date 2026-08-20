@@ -419,6 +419,11 @@ export interface MonitorInfo {
   y: number;
 }
 
+export interface OutputWindowInfo {
+  label: string;
+  monitor: string | null;
+}
+
 export interface BibleVersion {
   id: string;
   name: string;

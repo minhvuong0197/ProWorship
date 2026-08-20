@@ -15,6 +15,7 @@ import type {
   MediaItem,
   MonitorInfo,
   Overlay,
+  OutputWindowInfo,
   Playlist,
   Prop,
   Song,
@@ -85,7 +86,13 @@ export const api = {
   listMonitors: (): Promise<MonitorInfo[]> => invoke("list_monitors"),
   openOutputWindow: (monitorName: string | null): Promise<void> =>
     invoke("open_output_window", { monitorName }),
+  openExtraOutputWindow: (monitorName: string | null): Promise<string> =>
+    invoke("open_extra_output_window", { monitorName }),
   closeOutputWindow: (): Promise<void> => invoke("close_output_window"),
+  closeOutputWindowByLabel: (label: string): Promise<void> =>
+    invoke("close_output_window_by_label", { label }),
+  listOutputWindows: (): Promise<OutputWindowInfo[]> =>
+    invoke("list_output_windows"),
   isOutputOpen: (): Promise<boolean> => invoke("is_output_open"),
   isStageOpen: (): Promise<boolean> => invoke("is_stage_open"),
   openStageWindow: (): Promise<void> => invoke("open_stage_window"),

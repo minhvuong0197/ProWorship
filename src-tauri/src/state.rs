@@ -40,10 +40,19 @@ pub struct PersistedData {
     pub edit_shows: Vec<EditShow>,
 }
 
+/// Một cửa sổ Output đang mở (primary + các màn hình phụ). Presence trong
+/// danh sách = đang mở; khi đóng sẽ bị loại khỏi `outputs`.
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct OutputWindowInfo {
+    pub label: String,
+    pub monitor: Option<String>,
+}
+
 #[derive(Default)]
 pub struct WindowState {
     pub output_open: bool,
     pub stage_open: bool,
+    pub outputs: Vec<OutputWindowInfo>,
 }
 
 /// Coalescer cho ghi đĩa: nhiều lệnh đổi state trong cửa sổ debounce chỉ kích

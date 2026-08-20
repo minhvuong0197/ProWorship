@@ -39,6 +39,9 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
   const monitors = useAppStore((s) => s.monitors);
   const companionInfo = useAppStore((s) => s.companionInfo);
   const refreshCompanionInfo = useAppStore((s) => s.refreshCompanionInfo);
+  const outputs = useAppStore((s) => s.outputs);
+  const openExtraOutput = useAppStore((s) => s.openExtraOutput);
+  const closeOutputByLabel = useAppStore((s) => s.closeOutputByLabel);
 
   useEffect(() => {
     refreshCompanionInfo();
@@ -169,6 +172,48 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                 ))}
               </select>
             </label>
+          </section>
+
+          <section>
+            <h3>{t("settings.extraOutputs")}</h3>
+            <p className="muted-text">{t("settings.extraOutputsDesc")}</p>
+            <div className="extra-output-list">
+              {monitors.map((m) => (
+                <div key={m.name ?? `${m.x}-${m.y}`} className="extra-output-row">
+                  <span className="extra-output-name">
+                    {m.name ?? t("toolbar.monitor")} ({m.width}x{m.height})
+                  </span>
+                  <button
+                    className="primary"
+                    onClick={() => openExtraOutput(m.name)}
+                    title={t("settings.addOutput")}
+                  >
+                    {t("settings.addOutput")}
+                  </button>
+                </div>
+              ))}
+            </div>
+            <h4 style={{ marginTop: 14 }}>{t("settings.openOutputs")}</h4>
+            {outputs.length === 0 ? (
+              <div className="empty-hint">{t("settings.noOutputs")}</div>
+            ) : (
+              <div className="extra-output-list">
+                {outputs.map((o) => (
+                  <div key={o.label} className="extra-output-row">
+                    <span className="extra-output-name">
+                      {o.label}
+                      {o.monitor ? ` — ${o.monitor}` : ""}
+                    </span>
+                    <button
+                      onClick={() => closeOutputByLabel(o.label)}
+                      title={t("settings.close")}
+                    >
+                      {t("settings.close")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section>

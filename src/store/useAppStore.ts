@@ -14,6 +14,7 @@ import type {
   MediaItem,
   MonitorInfo,
   Overlay,
+  OutputWindowInfo,
   Playlist,
   Prop,
   Song,
@@ -38,6 +39,7 @@ interface AppStateStore {
   companionInfo: CompanionInfo | null;
   outputOpen: boolean;
   stageOpen: boolean;
+  outputs: OutputWindowInfo[];
   activePlaylistId: string | null;
   setActivePlaylistId: (id: string | null) => void;
   loadAll: () => Promise<void>;
@@ -80,6 +82,9 @@ interface AppStateStore {
   openOutput: (monitorName: string | null) => Promise<void>;
   closeOutput: () => Promise<void>;
   toggleOutput: (monitorName?: string | null) => Promise<void>;
+  openExtraOutput: (monitorName: string | null) => Promise<void>;
+  closeOutputByLabel: (label: string) => Promise<void>;
+  refreshOutputs: () => Promise<void>;
   openStage: () => Promise<void>;
   closeStage: () => Promise<void>;
   setOutputLocked: (locked: boolean) => Promise<void>;
@@ -108,6 +113,7 @@ export const useAppStore = create<AppStateStore>()(
   companionInfo: null,
   outputOpen: false,
   stageOpen: false,
+  outputs: [],
   activePlaylistId: null,
   setActivePlaylistId: (id) => set({ activePlaylistId: id }),
   loadAll: async () => {
@@ -117,10 +123,11 @@ export const useAppStore = create<AppStateStore>()(
       listen<LiveState>("live-update", (event) => {
         set({ live: event.payload });
       });
-      listen<{ output_open: boolean; stage_open: boolean }>("windows-update", (event) => {
+      listen<{ output_open: boolean; stage_open: boolean; outputs?: OutputWindowInfo[] }>("windows-update", (event) => {
         set({
           outputOpen: event.payload.output_open,
           stageOpen: event.payload.stage_open,
+          outputs: event.payload.outputs ?? [],
         });
       });
       listen<AppSettings>("settings-update", (event) => {
@@ -131,7 +138,7 @@ export const useAppStore = create<AppStateStore>()(
       });
     }
     try {
-      const [songs, editShows, media, audio, audioPlaylists, playlists, templates, props, overlays, settings, live, monitors, ccliLog, companionInfo, outputOpen, stageOpen] =
+      const [songs, editShows, media, audio, audioPlaylists, playlists, templates, props, overlays, settings, live, monitors, ccliLog, companionInfo, outputOpen, stageOpen, outputs] =
         await Promise.all([
           api.getSongs(),
           api.getEditShows(),
@@ -149,6 +156,7 @@ export const useAppStore = create<AppStateStore>()(
           api.getCompanionInfo(),
           api.isOutputOpen(),
           api.isStageOpen(),
+          api.listOutputWindows(),
         ]);
       set({
         songs,
@@ -167,6 +175,7 @@ export const useAppStore = create<AppStateStore>()(
         companionInfo,
         outputOpen,
         stageOpen,
+        outputs,
         loaded: true,
       });
     } catch (err) {
@@ -433,6 +442,26 @@ export const useAppStore = create<AppStateStore>()(
       await api.openOutputWindow(monitorName ?? null);
       set({ outputOpen: true });
     }
+  },
+
+  openExtraOutput: async (monitorName) => {
+    await api.openExtraOutputWindow(monitorName);
+    const outputs = await api.listOutputWindows();
+    set({ outputs, outputOpen: outputs.some((o) => o.label === "output") });
+  },
+
+  closeOutputByLabel: async (label) => {
+    await api.closeOutputWindowByLabel(label);
+    const outputs = await api.listOutputWindows();
+    set({
+      outputs,
+      outputOpen: outputs.some((o) => o.label === "output"),
+    });
+  },
+
+  refreshOutputs: async () => {
+    const outputs = await api.listOutputWindows();
+    set({ outputs });
   },
 
   openStage: async () => {

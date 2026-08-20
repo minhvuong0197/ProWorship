@@ -5,7 +5,7 @@ use uuid::Uuid;
 use crate::models::{
     AudioPlayback, CcliLog, LiveSlide, LiveState, Playlist, PlaylistEntry, Song, Template,
 };
-use crate::state::{now_millis, save_to_disk, AppState};
+use crate::state::{now_millis, save_to_disk, AppState, OutputWindowInfo};
 
 #[derive(Serialize, Clone)]
 pub struct MonitorInfo {
@@ -1156,13 +1156,28 @@ fn resolve_monitor(app: &AppHandle, monitor_name: Option<&str>) -> Option<Monito
 }
 
 fn emit_window_state(app: &AppHandle, state: &AppState) {
-    let (output_open, stage_open) = state
+    let (output_open, stage_open, outputs) = state
         .windows
         .lock()
-        .map(|w| (w.output_open, w.stage_open))
-        .unwrap_or((false, false));
-    let payload = serde_json::json!({ "output_open": output_open, "stage_open": stage_open });
+        .map(|w| (w.output_open, w.stage_open, w.outputs.clone()))
+        .unwrap_or((false, false, Vec::new()));
+    let payload = serde_json::json!({
+        "output_open": output_open,
+        "stage_open": stage_open,
+        "outputs": outputs,
+    });
     let _ = app.emit("windows-update", &payload);
+}
+
+fn upsert_output(w: &mut crate::state::WindowState, label: &str, monitor: Option<String>) {
+    if let Some(existing) = w.outputs.iter_mut().find(|o| o.label == label) {
+        existing.monitor = monitor;
+    } else {
+        w.outputs.push(OutputWindowInfo {
+            label: label.to_string(),
+            monitor,
+        });
+    }
 }
 
 fn mark_window_closed(app: &AppHandle, state: &AppState, label: &str) {
@@ -1171,6 +1186,9 @@ fn mark_window_closed(app: &AppHandle, state: &AppState, label: &str) {
             "output" => w.output_open = false,
             "stage" => w.stage_open = false,
             _ => {}
+        }
+        if label == "output" || label.starts_with("output-") {
+            w.outputs.retain(|o| o.label != label);
         }
     }
     emit_window_state(app, state);
@@ -1187,12 +1205,18 @@ fn watch_window_close(app: &AppHandle, win: &tauri::WebviewWindow) {
     });
 }
 
-#[tauri::command]
-pub async fn open_output_window(app: AppHandle, monitor_name: Option<String>) -> Result<(), String> {
-    let target = resolve_monitor(&app, monitor_name.as_deref());
+/// Mở một cửa sổ Output (primary "output" hoặc phụ "output-N") trên monitor
+/// được chọn. Tất cả cùng trỏ tới `output.html` và cùng render `LiveState` —
+/// tức là "clone" nội dung trình chiếu ra nhiều màn hình.
+fn open_output_on_label(
+    app: &AppHandle,
+    label: &str,
+    monitor_name: Option<String>,
+) -> Result<(), String> {
+    let target = resolve_monitor(app, monitor_name.as_deref());
     let state = app.state::<AppState>();
 
-    if let Some(win) = app.get_webview_window("output") {
+    if let Some(win) = app.get_webview_window(label) {
         if let Some(m) = &target {
             let _ = win.set_size(*m.size());
             let _ = win.set_position(*m.position());
@@ -1201,15 +1225,18 @@ pub async fn open_output_window(app: AppHandle, monitor_name: Option<String>) ->
         let _ = win.show();
         let _ = win.set_focus();
         if let Ok(mut w) = state.windows.lock() {
-            w.output_open = true;
+            if label == "output" {
+                w.output_open = true;
+            }
+            upsert_output(&mut w, label, monitor_name);
         }
         emit_window_state(&app, &state);
         return Ok(());
     }
 
     let mut builder = WebviewWindowBuilder::new(
-        &app,
-        "output",
+        app,
+        label,
         WebviewUrl::App("output.html".into()),
     )
     .title("Pro WorshipFlow - Output")
@@ -1229,11 +1256,49 @@ pub async fn open_output_window(app: AppHandle, monitor_name: Option<String>) ->
         let _ = win.set_fullscreen(true);
         watch_window_close(&app, &win);
         if let Ok(mut w) = state.windows.lock() {
-            w.output_open = true;
+            if label == "output" {
+                w.output_open = true;
+            }
+            upsert_output(&mut w, label, monitor_name);
         }
     }
     emit_window_state(&app, &state);
     Ok(())
+}
+
+/// Nhãn cửa sổ Output phụ kế tiếp chưa bị chiếm ("output-2", "output-3", …).
+fn next_output_label(app: &AppHandle, state: &AppState) -> String {
+    let used: Vec<String> = state
+        .windows
+        .lock()
+        .map(|w| w.outputs.iter().map(|o| o.label.clone()).collect())
+        .unwrap_or_default();
+    let mut i = 2u32;
+    loop {
+        let label = format!("output-{i}");
+        let taken = used.iter().any(|u| u == &label)
+            || app.get_webview_window(&label).is_some();
+        if !taken {
+            return label;
+        }
+        i += 1;
+    }
+}
+
+#[tauri::command]
+pub async fn open_output_window(app: AppHandle, monitor_name: Option<String>) -> Result<(), String> {
+    open_output_on_label(&app, "output", monitor_name)
+}
+
+#[tauri::command]
+pub async fn open_extra_output_window(
+    app: AppHandle,
+    monitor_name: Option<String>,
+) -> Result<String, String> {
+    let state = app.state::<AppState>();
+    let label = next_output_label(&app, &state);
+    open_output_on_label(&app, &label, monitor_name)?;
+    Ok(label)
 }
 
 #[tauri::command]
@@ -1246,9 +1311,38 @@ pub async fn close_output_window(app: AppHandle) -> Result<(), String> {
     }
     if let Ok(mut w) = state.windows.lock() {
         w.output_open = false;
+        w.outputs.retain(|o| o.label != "output");
     }
     emit_window_state(&app, &state);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn close_output_window_by_label(app: AppHandle, label: String) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    if let Some(win) = app.get_webview_window(&label) {
+        if win.close().is_err() {
+            let _ = win.destroy();
+        }
+    }
+    if let Ok(mut w) = state.windows.lock() {
+        if label == "output" {
+            w.output_open = false;
+        }
+        w.outputs.retain(|o| o.label != label);
+    }
+    emit_window_state(&app, &state);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_output_windows(app: AppHandle) -> Result<Vec<OutputWindowInfo>, String> {
+    let state = app.state::<AppState>();
+    state
+        .windows
+        .lock()
+        .map(|w| w.outputs.clone())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

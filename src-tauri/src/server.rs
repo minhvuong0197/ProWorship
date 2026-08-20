@@ -919,13 +919,30 @@ setInterval(refreshAll, 250);
     html
 }
 
+/// So sánh chuỗi trong thời gian tỷ lệ với chuỗi dài hơn (không rẽ nhánh sớm
+/// theo từng byte), tránh timing attack qua `==` chuỗi thường. Byte thiếu khi
+/// độ dài khác nhau được coi là `0`, nên chuỗi khác độ dài luôn trả `false`
+/// mà không trả về sớm.
+fn ct_str_eq(a: &str, b: &str) -> bool {
+    let ab = a.as_bytes();
+    let bb = b.as_bytes();
+    let max_len = ab.len().max(bb.len());
+    let mut diff = 0u8;
+    for i in 0..max_len {
+        let x = ab.get(i).copied().unwrap_or(0);
+        let y = bb.get(i).copied().unwrap_or(0);
+        diff |= x ^ y;
+    }
+    diff == 0
+}
+
 fn api_key_ok(headers: &[Header], api_key: &str) -> bool {
     if api_key.is_empty() {
         return true;
     }
     headers
         .iter()
-        .any(|h| h.field.equiv("X-API-Key") && h.value.as_str() == api_key)
+        .any(|h| h.field.equiv("X-API-Key") && ct_str_eq(h.value.as_str(), api_key))
 }
 
 fn is_authorized(req: &Request, api_key: &str) -> bool {
@@ -937,7 +954,7 @@ fn is_authorized(req: &Request, api_key: &str) -> bool {
 fn church_token_ok(headers: &[Header], pin: &str) -> bool {
     pin.is_empty()
         || headers.iter().any(|h| {
-            h.field.equiv("X-Church-Token") && h.value.as_str() == pin
+            h.field.equiv("X-Church-Token") && ct_str_eq(h.value.as_str(), pin)
         })
 }
 
@@ -2560,6 +2577,26 @@ mod tests {
     fn token_empty_pin_with_wrong_token_passes() {
         // PIN rỗng nghĩa là không cài mật khẩu → bỏ qua header.
         assert!(church_token_ok(&token_headers(""), ""));
+    }
+
+    #[test]
+    fn ct_eq_equal_strings() {
+        assert!(ct_str_eq("1234", "1234"));
+        assert!(ct_str_eq("", ""));
+    }
+
+    #[test]
+    fn ct_eq_different_strings() {
+        assert!(!ct_str_eq("1234", "1235"));
+        assert!(!ct_str_eq("1234", "12345"));
+        assert!(!ct_str_eq("12345", "1234"));
+        assert!(!ct_str_eq("", "1"));
+    }
+
+    #[test]
+    fn ct_eq_unicode_safe() {
+        assert!(ct_str_eq("Kinh Thánh", "Kinh Thánh"));
+        assert!(!ct_str_eq("Kinh Thánh", "Kinh Thanh"));
     }
 
     #[test]

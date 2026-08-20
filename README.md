@@ -27,6 +27,18 @@ npm run tauri build
 > trước khi `npm run tauri build` — nếu thiếu, build sẽ lỗi và tính năng NDI
 > output không chạy (phần video/NDI probe sẽ báo lỗi tạo sender).
 
+## ⚠️ Companion server (Church App / Stage Remote) — chỉ dùng trong LAN
+
+Companion server chạy trên cổng `8500` (mặc định, đổi được trong Cài đặt), lắng nghe
+trên **`0.0.0.0`** nên **mọi thiết bị trong mạng cục bộ đều truy cập được**. Nó phục vụ
+giao diện Church App (`/`) và Stage Remote (`/stage`) cho phone/máy tính bảng điều khiển
+trình chiếu.
+
+> **KHÔNG port-forward cổng này ra Internet.** `Access-Control-Allow-Origin: *` được set
+> toàn cục và xác thực chỉ là **PIN 6 số** gửi qua header `X-Church-Token` — không đủ
+> mạnh để bảo vệ một dịch vụ lộ ra ngoài mạng công cộng. Nếu cần điều khiển từ xa qua
+> Internet, hãy đặt app sau một proxy/ứng dụng VPN có xác thực riêng.
+
 ## Kiến trúc
 
 ```

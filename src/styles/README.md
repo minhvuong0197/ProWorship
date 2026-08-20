@@ -23,6 +23,7 @@ Mọi màu/spacing của UI app phải lấy từ palette dưới đây, không 
 - Chữ: `--text` `--muted`
 - Accent: `--accent` `--accent-2` `--accent-gradient` `--accent-soft`
 - Trạng thái: `--success` `--danger` `--warn`
+- Spacing: `--space-1` (6px) `--space-2` (8px) `--space-3` (12px) `--space-4` (16px)
 - Khác: `--shadow` `--shadow-lg` `--radius` `--radius-sm` `--font`
 
 **Window phụ** cần dùng palette: đặt `@import "./global.css";` ở dòng đầu
@@ -62,7 +63,7 @@ Cách phát hiện class không dùng: trích tất cả token `\.([a-z][\w-]*)`
 `global.css`, kiểm tra chuỗi đó có xuất hiện trong `src/**/*.{ts,tsx}` hay
 không (không đếm các file CSS khác, vì định nghĩa tự tham chiếu).
 
-Danh sách **38 class dead** ghi nhận lúc audit (chỉ tồn tại trong `global.css`,
+Danh sách **37 class dead** ghi nhận lúc audit (chỉ tồn tại trong `global.css`,
 không được component nào dùng — di tích của bản UI cũ, nên gỡ khi chạm vào
 vùng code liên quan):
 
@@ -74,8 +75,8 @@ nv-progress-fill     obs-audio-list       obs-audio-row
 obs-connected        obs-connecting       obs-field-row
 obs-input-name       obs-panel            obs-scene
 obs-scene-grid       obs-stream-row       obs-studio-main
-preview-text-wrapper service-bar-empty    status-ic
-template-preview     toolbar-sep          toolbar-tools
+preview-text-wrapper status-ic
+template-preview     toolbar-tools
 tpl-default-row      tpl-edit-tools       tpl-override-transform
 tpl-selected-info    tpl-swatch           tpl-toolbar
 tpl-topbar           tpl-transpose        tpl-transpose-reset

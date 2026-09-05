@@ -321,6 +321,49 @@ button.icon {
   color: var(--muted);
   font-size: 10px;
   white-space: nowrap;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.toolbar-health:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.diagnostics-modal {
+  width: min(720px, calc(100vw - 32px));
+}
+
+.diagnostics-status {
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+  font-size: 12px;
+}
+
+.diagnostics-status .online {
+  color: var(--success);
+}
+
+.diagnostics-status .idle {
+  color: var(--muted);
+}
+
+.diagnostics-status .offline {
+  color: var(--danger);
+}
+
+.diagnostics-report {
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  font: 11px/1.5 Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .health-item {

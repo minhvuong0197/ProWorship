@@ -5,6 +5,7 @@ import CcliReportModal from "../CcliReportModal";
 import CalendarModal from "../CalendarModal";
 import { useT } from "../../lib/i18n";
 import Icon from "../Icon/Icon";
+import DiagnosticsModal from "../DiagnosticsModal";
 
 interface Props {
   onOpenShortcuts: () => void;
@@ -27,6 +28,7 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showCcli, setShowCcli] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [minutes, setMinutes] = useState("5");
   const [seconds, setSeconds] = useState("0");
 
@@ -114,8 +116,10 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
 
       <div className="toolbar-spacer" />
 
-      <div
+      <button
+        type="button"
         className="toolbar-health"
+        onClick={() => setShowDiagnostics(true)}
         title={`${outputTitle}${diagnostics.length > 0 ? ` | Lỗi gần nhất: ${diagnostics[diagnostics.length - 1].message}` : " | Không có lỗi vận hành gần đây"}`}
       >
         <span className={`health-item ${outputOpen ? "online" : "offline"}`}>
@@ -130,7 +134,7 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
             <span className="health-dot" /> NDI
           </span>
         )}
-      </div>
+      </button>
 
       <div className="toolbar-actions">
         <button onClick={() => setShowCalendar(true)} title={t("toolbar.calendar")}>
@@ -150,6 +154,17 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
       {showCcli && <CcliReportModal onClose={() => setShowCcli(false)} />}
       {showCalendar && <CalendarModal onClose={() => setShowCalendar(false)} />}
+      {showDiagnostics && (
+        <DiagnosticsModal
+          onClose={() => setShowDiagnostics(false)}
+          diagnostics={diagnostics}
+          outputs={outputs}
+          outputOpen={outputOpen}
+          stageOpen={stageOpen}
+          ndiInputActive={ndiInputActive}
+          live={live}
+        />
+      )}
     </header>
   );
 }

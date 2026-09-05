@@ -1,7 +1,8 @@
-//! Native C++ core (Video Engine + NDI Output) bridged via `cxx`.
+//! Native C++ core (Video Engine + NDI Output/Input) bridged via `cxx`.
 
 pub mod bridge;
 pub mod ndi;
+pub mod ndi_input;
 pub mod player;
 
 #[cfg(test)]
@@ -193,6 +194,19 @@ mod tests {
         // Only runs if the NDI SDK DLL can be located next to the exe.
         let sender = bridge::new_ndi_sender("pwcp-test");
         assert!(!sender.is_null(), "ndi sender creation failed");
+    }
+
+    /// NDI input receiver smoke test: creating an unconnected receiver and
+    /// listing LAN sources must not crash even with no NDI source present.
+    #[test]
+    fn ndi_receiver_lists_sources_smoke() {
+        let recv = bridge::new_ndi_receiver();
+        assert!(!recv.is_null(), "ndi receiver creation failed");
+        assert!(!recv.is_connected(), "fresh receiver must be unconnected");
+        let sources = bridge::ndi_list_sources();
+        // No assertion on contents: with no NDI sources on the LAN this is an
+        // empty list, which is valid. We only verify the call path is sound.
+        eprintln!("NDI SOURCES: {}", sources.join(" | "));
     }
 
     /// A2 integration smoke test: with the NDI sink attached to the player,

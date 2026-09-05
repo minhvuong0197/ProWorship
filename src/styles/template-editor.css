@@ -66,8 +66,8 @@ body,
 }
 
 .tpl-win-item.sel {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--border-strong);
+  background: var(--panel-3);
 }
 
 .tpl-win-item .swatch {

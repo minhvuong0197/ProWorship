@@ -93,7 +93,7 @@ class ObsClient {
     }
   }
 
-  private setAction(msg: string | null) {
+  setAction(msg: string | null) {
     this.action = msg;
     if (this.actionTimer) {
       clearTimeout(this.actionTimer);
@@ -106,6 +106,11 @@ class ObsClient {
         this.notify();
       }, 3000);
     }
+    this.notify();
+  }
+
+  reportError(msg: string) {
+    this.lastError = msg;
     this.notify();
   }
 

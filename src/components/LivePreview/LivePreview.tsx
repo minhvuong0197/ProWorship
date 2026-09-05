@@ -5,6 +5,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { useT } from "../../lib/i18n";
 import Icon from "../Icon/Icon";
 import PreviewSlide from "./PreviewSlide";
+import { obsClient } from "../../lib/obs";
 
 function formatCountdown(end: number | null | undefined): string | null {
   if (!end) return null;
@@ -18,6 +19,9 @@ function formatCountdown(end: number | null | undefined): string | null {
 export default function LivePreview() {
   const t = useT();
   const live = useAppStore((s) => s.live);
+  const armedLive = useAppStore((s) => s.armedLive);
+  const goLiveArmed = useAppStore((s) => s.goLiveArmed);
+  const clearArmedLive = useAppStore((s) => s.clearArmedLive);
   const outputOpen = useAppStore((s) => s.outputOpen);
   const toggleOutput = useAppStore((s) => s.toggleOutput);
   const clearLive = useAppStore((s) => s.clearLive);
@@ -34,6 +38,9 @@ export default function LivePreview() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [chroma, setChroma] = useState(false);
+  const [obsConnected, setObsConnected] = useState(obsClient.status === "connected");
+
+  useEffect(() => obsClient.subscribe(() => setObsConnected(obsClient.status === "connected")), []);
 
   const canvasBoxRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -109,7 +116,7 @@ export default function LivePreview() {
       <div className="preview-bar">
         <button
           type="button"
-          className={`preview-bar-btn${current ? " active" : ""}`}
+          className={`preview-bar-btn color-preview${current ? " active" : ""}`}
           title={t("preview.win.preview")}
         >
           <span className="preview-bar-dot" />
@@ -117,7 +124,7 @@ export default function LivePreview() {
         </button>
         <button
           type="button"
-          className={`preview-bar-btn${outputOpen ? " active" : ""}`}
+          className={`preview-bar-btn color-output${outputOpen ? " active" : ""}`}
           onClick={() => toggleOutput()}
           title={t("preview.win.output")}
         >
@@ -126,7 +133,7 @@ export default function LivePreview() {
         </button>
         <button
           type="button"
-          className={`preview-bar-btn${live ? " active" : ""}`}
+          className={`preview-bar-btn color-live${live?.current && obsConnected ? " active" : ""}`}
           title={t("preview.win.live")}
         >
           <span className="preview-bar-dot" />
@@ -134,7 +141,7 @@ export default function LivePreview() {
         </button>
         <button
           type="button"
-          className={`preview-bar-btn${stageOpen ? " active" : ""}`}
+          className={`preview-bar-btn color-stage${stageOpen ? " active" : ""}`}
           onClick={() => (stageOpen ? closeStage() : openStage())}
           title={t("preview.win.stage")}
         >
@@ -144,11 +151,24 @@ export default function LivePreview() {
       </div>
       <div className="preview-canvas" ref={canvasBoxRef}>
         {current ? (
-          <PreviewSlide slide={current} playing={live?.media_playing} chroma={chroma} thumbnail />
+          <PreviewSlide slide={current} playing={live?.media_playing} chroma={chroma} />
         ) : (
           <span style={{ color: "#555" }}>{t("preview.none")}</span>
         )}
       </div>
+
+      {armedLive?.current && (
+        <div className="cue-bar">
+          <span className="cue-label">ARMED</span>
+          <span className="cue-title">{armedLive.current.label || armedLive.current.title}</span>
+          <button className="primary" onClick={() => goLiveArmed()} title="Đưa cue lên Output">
+            <Icon name="play" size={12} /> Go Live
+          </button>
+          <button className="icon" onClick={clearArmedLive} title="Hủy cue">
+            <Icon name="x" size={13} />
+          </button>
+        </div>
+      )}
 
       <div style={{ textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
         <button

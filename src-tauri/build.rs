@@ -17,6 +17,7 @@ fn main() {
     cxx_build::bridge("src/native/bridge.rs")
         .file("cpp/src/video_engine.cpp")
         .file("cpp/src/ndi_output.cpp")
+        .file("cpp/src/ndi_input.cpp")
         .include("cpp/include")
         .include(&ffmpeg_include)
         .include(&ndi_include)
@@ -31,6 +32,7 @@ fn main() {
     println!("cargo:rerun-if-changed=cpp/include/core.h");
     println!("cargo:rerun-if-changed=cpp/src/video_engine.cpp");
     println!("cargo:rerun-if-changed=cpp/src/ndi_output.cpp");
+    println!("cargo:rerun-if-changed=cpp/src/ndi_input.cpp");
 
     // ---- FFmpeg static libs (vcpkg x64-windows-static-md) ----
     println!("cargo:rustc-link-search=native={}", ffmpeg_lib.display());

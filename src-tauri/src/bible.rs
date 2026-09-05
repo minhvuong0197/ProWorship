@@ -378,6 +378,7 @@ pub fn present_bible_selection_version(
         text: Some(text),
         label: Some(reference),
         media_path: None,
+        live_source: None,
         background: None,
         notes: None,
         text_color: None,
@@ -405,6 +406,70 @@ pub fn present_bible_selection_version(
     })
 }
 
+/// Hiển thị một câu Kinh Thánh trong một đoạn (range) đang trình chiếu từng câu.
+/// bible_ref mang thông tin cả đoạn để `advance_bible_selection` bước từng câu
+/// trong giới hạn: `abbrev|chapter|cauHienTai|cauHienTai|bookName|versionName|rangeStart|rangeEnd`.
+pub fn present_bible_verse_in_range(
+    app: &tauri::AppHandle,
+    version: Option<String>,
+    abbrev: &str,
+    chapter: usize,
+    verse: usize,
+    range_start: usize,
+    range_end: usize,
+) -> Option<crate::models::LiveSlide> {
+    let bf = load_bible_file(app, &version.unwrap_or_else(|| BUILTIN_VERSION_ID.into())).ok()?;
+    let book = bf.books.iter().find(|b| b.abbrev == abbrev)?;
+    if chapter == 0 || chapter > book.chapters.len() {
+        return None;
+    }
+    let chap = &book.chapters[chapter - 1];
+    if verse == 0 || verse > chap.len() {
+        return None;
+    }
+    let text = chap[verse - 1].clone();
+    if text.trim().is_empty() {
+        return None;
+    }
+    let bname = vn_name(&book.abbrev, &book.name);
+    let reference = if range_start == range_end {
+        format!("{} {}:{}", bname, chapter, verse)
+    } else {
+        format!("{} {}:{}-{}", bname, chapter, range_start, range_end)
+    };
+    Some(crate::models::LiveSlide {
+        kind: "song".into(),
+        title: reference.clone(),
+        text: Some(format!("{} {}", verse, text.trim())),
+        label: Some(reference),
+        media_path: None,
+        live_source: None,
+        background: None,
+        notes: None,
+        text_color: None,
+        font_size: None,
+        align: None,
+        position: None,
+        bg_color: None,
+        bg_filter: None,
+        layers: Vec::new(),
+        elements: Vec::new(),
+        overrides: Vec::new(),
+        formatting: None,
+        bible_ref: Some(format!(
+            "{}|{}|{}|{}|{}|{}|{}|{}",
+            book.abbrev,
+            chapter,
+            verse,
+            verse,
+            bname,
+            bf.name,
+            range_start,
+            range_end
+        )),
+    })
+}
+
 pub fn advance_bible_selection(
     app: &tauri::AppHandle,
     version: Option<String>,
@@ -424,6 +489,30 @@ pub fn advance_bible_selection(
     if chapter == 0 || chapter > book.chapters.len() {
         return None;
     }
+
+    // Trình chiếu từng câu trong đoạn: bible_ref đuôi "|rangeStart|rangeEnd".
+    if parts.len() >= 8 {
+        let range_start: usize = parts[6].parse().ok()?;
+        let range_end: usize = parts[7].parse().ok()?;
+        if range_start == 0 || range_end < range_start {
+            return None;
+        }
+        let cur = first;
+        let (nc, nv) = if dir > 0 {
+            if cur < range_end {
+                (chapter, cur + 1)
+            } else {
+                return None;
+            }
+        } else if cur > range_start {
+            (chapter, cur - 1)
+        } else {
+            return None;
+        };
+        return present_bible_verse_in_range(app, version, &abbrev, nc, nv, range_start, range_end);
+    }
+
+    // Các trường hợp còn lại (một câu đơn lẻ): đi tiếp câu/chương kế tiếp.
     let chap_len = book.chapters[chapter - 1].len();
     let (nc, nv) = if dir > 0 {
         if last < chap_len {
@@ -487,7 +576,30 @@ fn load_bible_file(app: &tauri::AppHandle, version: &str) -> Result<BibleFile, S
         }
         return builtin_bible();
     }
-    read_bible_file(&bibles_dir(app)?.join(format!("{version}.json")), version)
+    let dir = bibles_dir(app)?;
+    let by_id = dir.join(format!("{version}.json"));
+    if by_id.exists() {
+        return read_bible_file(&by_id, version);
+    }
+    // ref_id có thể lưu TÊN bản dịch thay vì ID (file). Tìm file theo tên.
+    if let Ok(rd) = std::fs::read_dir(&dir) {
+        for entry in rd.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let raw = match std::fs::read_to_string(&path) {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            if let Ok(bf) = serde_json::from_str::<BibleFile>(&raw) {
+                if bf.name == version {
+                    return read_bible_file(&path, version);
+                }
+            }
+        }
+    }
+    Err(format!("không tìm thấy bản dịch {version}"))
 }
 
 pub fn bible_version_template_id(app: &tauri::AppHandle, version: Option<&str>) -> Option<String> {

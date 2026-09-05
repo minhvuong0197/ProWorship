@@ -86,8 +86,40 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// ---------------------------------------------------------------------------
+// NDI Input — receives live video frames over the LAN via the NDI SDK.
+// ---------------------------------------------------------------------------
+class NdiReceiver {
+public:
+    // Connect to the source identified by `name` (the readable name shown by
+    // NDI find). The receiver starts up unconnected; call connect() to attach.
+    NdiReceiver();
+    ~NdiReceiver();
+    NdiReceiver(const NdiReceiver&) = delete;
+    NdiReceiver& operator=(const NdiReceiver&) = delete;
+
+    // Attach to a source by its readable name (e.g. "MACHINE (SOURCE)"). The
+    // name is resolved through NDI find, so it must match a current source.
+    bool connect(rust::Str name);
+    // Capture the latest video frame, JPEG-encode it and return the bytes.
+    // Empty when no frame is available yet. Dims are exposed via width()/height().
+    rust::Vec<uint8_t> capture_jpeg(uint8_t quality);
+    int32_t width() const;
+    int32_t height() const;
+    double fps() const;
+    bool is_connected() const;
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
+
+// Discover NDI sources currently on the LAN. Returns their readable names.
+rust::Vec<rust::String> ndi_list_sources();
+
 // Free functions referenced by the bridge. `&str`/`&[u8]` map to `rust::Str`/`rust::Slice`.
 std::unique_ptr<VideoDecoder> new_video_decoder(rust::Str path, bool hw_accel);
 std::unique_ptr<NdiSender> new_ndi_sender(rust::Str name);
+std::unique_ptr<NdiReceiver> new_ndi_receiver();
 
 } // namespace pwcp

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import type { DragEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { DragEvent, MouseEvent } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import type { Playlist, PlaylistEntry } from "../../lib/types";
 import { uid } from "../../lib/types";
@@ -21,7 +21,15 @@ const KIND_ICON: Record<PlaylistEntry["kind"], IconName> = {
   media: "film",
   audio: "audio",
   blank: "x",
-  bible: "book",
+  bible: "bible",
+};
+
+const KIND_COLOR: Record<PlaylistEntry["kind"], string> = {
+  song: "#c084fc",
+  media: "#34d399",
+  audio: "#fbbf24",
+  blank: "#8b9099",
+  bible: "#5b9dff",
 };
 
 function newPlaylist(name: string): Playlist {
@@ -52,6 +60,18 @@ export default function ProjectPanel({ onSelectShow }: Props) {
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dropOver, setDropOver] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{
+    playlistId: string;
+    entryId: string | null;
+  } | null>(null);
+  const [draft, setDraft] = useState("");
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    playlist: Playlist;
+    entry: PlaylistEntry | null;
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (activePlaylistId && !expanded[activePlaylistId]) {
@@ -60,8 +80,83 @@ export default function ProjectPanel({ onSelectShow }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlaylistId]);
 
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onDown = (e: globalThis.MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu(null);
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [menu]);
+
   const toggleProject = (id: string) =>
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const openMenu = (e: MouseEvent, p: Playlist, entry: PlaylistEntry | null) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditing(null);
+    setMenu({ x: e.clientX, y: e.clientY, playlist: p, entry });
+  };
+
+  const startRenameProject = (p: Playlist) => {
+    setEditing({ playlistId: p.id, entryId: null });
+    setDraft(p.name || "");
+  };
+
+  const startRenameEntry = (p: Playlist, entry: PlaylistEntry) => {
+    setEditing({ playlistId: p.id, entryId: entry.id });
+    setDraft(entry.title);
+  };
+
+  const menuRename = () => {
+    if (!menu) return;
+    if (menu.entry) startRenameEntry(menu.playlist, menu.entry);
+    else startRenameProject(menu.playlist);
+    setMenu(null);
+  };
+
+  const menuDelete = () => {
+    if (!menu) return;
+    if (menu.entry) removeEntry(menu.playlist, menu.entry);
+    else removeProject(menu.playlist);
+    setMenu(null);
+  };
+
+  const commitRename = (p: Playlist) => {
+    if (!editing) return;
+    const name = draft.trim();
+    if (editing.entryId == null) {
+      if (name && name !== p.name) savePlaylist({ ...p, name });
+    } else {
+      savePlaylist({
+        ...p,
+        entries: p.entries.map((e) =>
+          e.id === editing.entryId ? { ...e, title: name || e.title } : e,
+        ),
+      });
+    }
+    setEditing(null);
+    setDraft("");
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setDraft("");
+  };
+
+  const removeEntry = (p: Playlist, entry: PlaylistEntry) => {
+    if (!window.confirm(`${t("project.deleteEntry")} "${entry.title}"?`)) return;
+    savePlaylist({
+      ...p,
+      entries: p.entries.filter((e) => e.id !== entry.id),
+    });
+  };
 
   const createProject = () => {
     const p = newPlaylist(t("project.newProject"));
@@ -193,41 +288,65 @@ export default function ProjectPanel({ onSelectShow }: Props) {
               <div
                 className={`project-row${isActive ? " active" : ""}`}
                 onClick={() => toggleProject(p.id)}
+                onContextMenu={(e) => openMenu(e, p, null)}
                 title={t("project.toggle")}
               >
                 <Icon name={isOpen ? "chevronDown" : "chevronsRight"} size={12} className="project-chevron" />
-                <span className="project-name" title={p.name}>
-                  {p.name || t("project.newProject")}
-                </span>
+                {editing?.playlistId === p.id && editing.entryId == null ? (
+                  <input
+                    className="project-rename-input"
+                    value={draft}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename(p);
+                      if (e.key === "Escape") cancelEdit();
+                    }}
+                    onBlur={() => commitRename(p)}
+                  />
+                ) : (
+                  <span className="project-name" title={p.name}>
+                    {p.name || t("project.newProject")}
+                  </span>
+                )}
                 <span className="project-count">{p.entries.length}</span>
-                <button
-                  className="project-row-btn"
-                  title={t("playlist.deletePlaylist")}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeProject(p);
-                  }}
-                >
-                  <Icon name="trash" size={12} />
-                </button>
               </div>
               {isOpen && (
                 <div className="project-shows">
                   {p.entries.length === 0 && (
                     <div className="project-show-empty">{t("project.noShows")}</div>
                   )}
-                  {p.entries.map((entry, i) => (
+{p.entries.map((entry, i) => (
                     <div
                       key={entry.id}
                       className={`project-show${liveIndex === i ? " live" : ""}`}
                       onClick={() => selectShow(p, i)}
+                      onContextMenu={(e) => openMenu(e, p, entry)}
                       title={t("project.present")}
                     >
-                      <Icon name={KIND_ICON[entry.kind]} size={11} className="project-show-icon" />
-                      <span className="project-show-title" title={entry.title}>
-                        {entry.title}
-                      </span>
-                      {liveIndex === i && <Icon name="play" size={11} className="project-show-live" />}
+                      <Icon name={KIND_ICON[entry.kind]} size={11} className="project-show-icon" color={KIND_COLOR[entry.kind]} />
+                      {editing?.playlistId === p.id && editing.entryId === entry.id ? (
+                        <input
+                          className="project-rename-input"
+                          value={draft}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRename(p);
+                            if (e.key === "Escape") cancelEdit();
+                          }}
+                          onBlur={() => commitRename(p)}
+                        />
+                      ) : (
+                        <span className="project-show-title" title={entry.title}>
+                          {entry.title}
+                        </span>
+                      )}
+                      {liveIndex === i && (
+                        <Icon name="play" size={11} className="project-show-live" />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -236,6 +355,28 @@ export default function ProjectPanel({ onSelectShow }: Props) {
           );
         })}
       </div>
+      {menu && (
+        <div
+          ref={menuRef}
+          className="project-context-menu"
+          style={{ left: menu.x, top: menu.y }}
+        >
+          <button
+            className="project-context-item"
+            onClick={menuRename}
+          >
+            <Icon name="edit" size={13} />
+            {menu.entry ? t("project.renameEntry") : t("project.rename")}
+          </button>
+          <button
+            className="project-context-item danger"
+            onClick={menuDelete}
+          >
+            <Icon name="trash" size={13} />
+            {menu.entry ? t("project.deleteEntry") : t("playlist.deletePlaylist")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

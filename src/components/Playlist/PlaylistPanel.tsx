@@ -334,7 +334,7 @@ export default function PlaylistPanel() {
       const a = audio.find((x) => x.id === entry.ref_id);
       return (
         <div className="playlist-thumb-audio">
-          <Icon name="music" size={40} />
+          <Icon name="music" size={40} color="#fbbf24" />
           <span>{a?.name ?? entry.title}</span>
         </div>
       );

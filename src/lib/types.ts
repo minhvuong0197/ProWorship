@@ -211,6 +211,8 @@ export interface LiveSlide {
   text?: string;
   label?: string;
   media_path?: string;
+  /** Khi set, hiển thị nguồn live (NDI) thay cho media_path. */
+  live_source?: string;
   background?: string;
   notes?: string;
   text_color?: string;
@@ -395,6 +397,7 @@ export interface AppSettings {
   obs_port?: number;
   obs_password?: string;
   obs_auto_scene_switch?: boolean;
+  obs_hidden_inputs?: string[];
   obs_scene_lyric?: string;
   obs_scene_camera?: string;
   obs_scene_blank?: string;

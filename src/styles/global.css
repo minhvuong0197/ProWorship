@@ -198,6 +198,36 @@ button.icon {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+.app-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 34px;
+  padding: 6px 10px 6px 14px;
+  background: rgba(229, 83, 75, 0.16);
+  border-bottom: 1px solid var(--danger);
+  color: #ffd9d6;
+  font-size: 12px;
+  z-index: 20;
+}
+
+.app-error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.app-error-dismiss:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .toolbar-side {
   display: flex;
   align-items: center;
@@ -281,6 +311,74 @@ button.icon {
 .toolbar-group button:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
+}
+
+.toolbar-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.health-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.health-item.online {
+  color: var(--success);
+}
+
+.health-item.idle {
+  color: var(--muted);
+}
+
+.health-item.offline {
+  color: var(--danger);
+}
+
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.cue-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 8px;
+  margin: 6px 8px 0;
+  border: 1px solid var(--warn);
+  background: rgba(224, 168, 63, 0.12);
+  color: var(--text);
+  font-size: 11px;
+}
+
+.cue-label {
+  color: var(--warn);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.cue-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.presentation-grid-item.armed {
+  outline: 2px solid var(--warn);
+  outline-offset: -2px;
 }
 
 .toolbar-group button.danger:hover {

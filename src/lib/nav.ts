@@ -10,7 +10,6 @@ export type EditorKind = "songs" | "bible" | "media" | "audio";
 
 export type CenterView =
   | { kind: "show" }
-  | { kind: "library"; mode: LibraryMode }
   | { kind: "tool"; mode: ToolMode }
   | { kind: "editor"; editor: EditorKind; songId?: string | null };
 

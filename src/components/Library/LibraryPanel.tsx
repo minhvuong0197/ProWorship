@@ -24,6 +24,7 @@ import {
 } from "../../lib/nav";
 import { useT } from "../../lib/i18n";
 import Icon from "../Icon/Icon";
+import type { IconName } from "../Icon/Icon";
 import SearchBox from "../SearchBox";
 
 interface Props {
@@ -237,7 +238,7 @@ function BibleLibrary({ onOpenEditor }: { onOpenEditor: Props["onOpenEditor"] })
           title={t("library.openBible")}
           onClick={() => onOpenEditor("bible")}
         >
-          <Icon name="book" size={13} />
+          <Icon name="bible" size={13} />
         </button>
       </div>
       <div className="library-list">
@@ -434,10 +435,18 @@ function AudioLibraryView({ onOpenEditor }: { onOpenEditor: Props["onOpenEditor"
 
 export default function LibraryPanel({ mode, onOpenEditor }: Props) {
   const t = useT();
+  const modeMeta: Record<LibraryMode, { icon: IconName; color: string }> = {
+    songs: { icon: "music", color: "#c084fc" },
+    bible: { icon: "bible", color: "#5b9dff" },
+    media: { icon: "image", color: "#34d399" },
+    audio: { icon: "audio", color: "#fbbf24" },
+  };
+  const meta = modeMeta[mode];
   return (
     <div className="library-panel">
       <div className="library-panel-head">
         <span className="library-panel-title">
+          <Icon name={meta.icon} size={15} color={meta.color} />
           {mode === "songs"
             ? t("tab.songs")
             : mode === "bible"

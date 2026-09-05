@@ -223,10 +223,6 @@ function ObsPreview() {
         ref={bodyRef}
         className={`obs-preview-body ${studio ? "studio" : ""}`}
       >
-        <div className="obs-debug">
-          {obsClient.status} · {programScene ?? "?"} · {dbgData || "…"} ·{" "}
-          {dbgSize}
-        </div>
         {studio && (
           <>
             <div className="obs-studio-col obs-col-preview">
@@ -322,37 +318,99 @@ function ObsPreview() {
   );
 }
 
+function mulToDb(mul: number): number {
+  return mul <= 0 ? -Infinity : 20 * Math.log10(mul);
+}
+
+function dbToMul(db: number): number {
+  return Math.pow(10, db / 20);
+}
+
 function ChannelFader({
   value,
   onCommit,
+  vertical,
 }: {
   value: number;
   onCommit: (v: number) => void;
+  vertical: boolean;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<number | null>(null);
   const [v, setV] = useState(value);
-  const dragging = useRef(false);
+  const lastSent = useRef<number | null>(null);
+  const draggingRef = useRef(false);
+  const latestMul = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!dragging.current) setV(value);
+    if (draggingRef.current) return;
+    if (lastSent.current !== null && Math.abs(value - lastSent.current) < 1e-6) {
+      return;
+    }
+    setV(value);
+    lastSent.current = null;
   }, [value]);
 
+  const db = drag !== null ? drag : mulToDb(v);
+  const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+
+  const commit = (mul: number) => {
+    lastSent.current = mul;
+    onCommit(mul);
+  };
+
+  const update = (clientX: number, clientY: number) => {
+    const el = ref.current?.querySelector<HTMLElement>(".obs-fader-track");
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const frac = vertical
+      ? 1 - (clientY - rect.top) / rect.height
+      : (clientX - rect.left) / rect.width;
+    const ndb = Math.round((-60 + Math.max(0, Math.min(1, frac)) * 60) * 10) / 10;
+    const mul = dbToMul(ndb);
+    latestMul.current = mul;
+    setV(mul);
+    setDrag(ndb);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    draggingRef.current = true;
+    setDrag(mulToDb(v));
+    update(e.clientX, e.clientY);
+    commit(latestMul.current ?? v);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (drag === null) return;
+    update(e.clientX, e.clientY);
+  };
+  const onPointerUp = () => {
+    if (latestMul.current !== null) commit(latestMul.current);
+    draggingRef.current = false;
+    setDrag(null);
+  };
+
+  const thumbStyle = vertical
+    ? { bottom: `${pct}%` }
+    : { left: `${pct}%` };
+
   return (
-    <input
-      type="range"
-      className="obs-fader"
-      min={0}
-      max={1}
-      step={0.01}
-      value={v}
-      onPointerDown={() => (dragging.current = true)}
-      onPointerUp={() => (dragging.current = false)}
-      onBlur={() => (dragging.current = false)}
-      onChange={(e) => {
-        const nv = Number(e.target.value);
-        setV(nv);
-        onCommit(nv);
-      }}
-    />
+    <div
+      ref={ref}
+      className={`obs-fader-custom ${vertical ? "obs-fader-v" : "obs-fader-h"}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
+      <div className="obs-fader-track" />
+      <div
+        className="obs-fader-fill"
+        style={vertical ? { height: `${pct}%` } : { width: `${pct}%` }}
+      />
+      <div className="obs-fader-thumb" style={thumbStyle} />
+    </div>
   );
 }
 
@@ -541,6 +599,20 @@ export default function ObsController() {
   const [previewH, setPreviewH] = useState<number | null>(null);
   const [resizing, setResizing] = useState(false);
   const [dockWidths, setDockWidths] = useState<number[] | null>(null);
+  const [mixerVertical, setMixerVertical] = useState(true);
+
+  const settings = useAppStore((s) => s.settings);
+  const setSettings = useAppStore((s) => s.setSettings);
+  const patchSettings = (patch: Partial<AppSettings>) => {
+    if (!settings) return;
+    const next: AppSettings = {
+      ...settings,
+      ...patch,
+      obs_host: (patch.obs_host ?? settings.obs_host ?? "").trim() || "127.0.0.1",
+      obs_port: Number(patch.obs_port ?? settings.obs_port) || 4455,
+    };
+    setSettings(next);
+  };
 
   const clampPreview = useCallback((h: number, total: number) => {
     return Math.max(MIN_PREVIEW, Math.min(h, total - 90));
@@ -575,6 +647,21 @@ export default function ObsController() {
       window.removeEventListener("resize", initDocks);
     };
   }, [updateFromContainer, initDocks]);
+
+  const obsWidthRef = useRef(0);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth;
+      if (Math.abs(w - obsWidthRef.current) > 1) {
+        obsWidthRef.current = w;
+        initDocks();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [initDocks]);
 
   useEffect(() => {
     setDuration(String(obsClient.transitionDuration || 0));
@@ -664,36 +751,55 @@ export default function ObsController() {
   );
 
   const mixerPanel = (
-    <div className="obs-mixer">
+    <div className={`obs-mixer ${mixerVertical ? "obs-mixer-vertical" : "obs-mixer-horizontal"}`}>
       {!connected && <div className="empty-hint">{t("obs.connectFirst")}</div>}
       {connected && obsClient.inputs.length === 0 && (
         <div className="empty-hint">{t("obs.noInputs")}</div>
       )}
-      {obsClient.inputs.map((inp) => (
-        <div key={inp.inputName} className="obs-mixer-channel">
-          <button
-            className={`obs-mixer-mute ${inp.muted ? "muted" : ""}`}
-            disabled={inp.muted === undefined}
-            onClick={() =>
-              obsClient.setMute(inp.inputName, !inp.muted).catch(() => {})
-            }
-          >
-            {inp.muted ? <Icon name="volumeX" size={15} /> : <Icon name="volume" size={15} />}
-          </button>
-          {inp.volumeMul !== undefined && (
-            <ChannelFader
-              value={inp.volumeMul}
-              onCommit={(v) =>
-                obsClient.setVolume(inp.inputName, v).catch(() => {})
-              }
-            />
-          )}
-          <span className="obs-db">
-            {inp.volumeDb !== undefined ? `${inp.volumeDb.toFixed(1)} dB` : "—"}
-          </span>
-          <span className="obs-mixer-name">{inp.inputName}</span>
-        </div>
-      ))}
+      {obsClient.inputs
+        .filter((inp) => !(settings?.obs_hidden_inputs ?? []).includes(inp.inputName))
+        .map((inp) => (
+          <div key={inp.inputName} className="obs-mixer-channel">
+            <span className="obs-mixer-name">{inp.inputName}</span>
+            <div className="obs-mixer-controls">
+              <button
+                className={`obs-mixer-mute ${inp.muted ? "muted" : ""}`}
+                disabled={inp.muted === undefined}
+                onClick={() =>
+                  obsClient.setMute(inp.inputName, !inp.muted).catch(() => {})
+                }
+              >
+                {inp.muted ? <Icon name="volumeX" size={15} /> : <Icon name="volume" size={15} />}
+              </button>
+              {inp.volumeMul !== undefined && (
+                <ChannelFader
+                  value={inp.volumeMul}
+                  vertical={mixerVertical}
+                  onCommit={(v) =>
+                    obsClient
+                      .setVolume(inp.inputName, v)
+                      .then(() => obsClient.setAction("setVolumeOk"))
+                      .catch((err) => obsClient.reportError(String(err)))
+                  }
+                />
+              )}
+              <button
+                className="obs-mixer-hide"
+                title={t("obs.hideInput")}
+                onClick={() =>
+                  patchSettings({
+                    obs_hidden_inputs: [
+                      ...(settings?.obs_hidden_inputs ?? []),
+                      inp.inputName,
+                    ],
+                  })
+                }
+              >
+                <Icon name="eyeOff" size={11} />
+              </button>
+            </div>
+          </div>
+        ))}
     </div>
   );
 
@@ -759,7 +865,30 @@ export default function ObsController() {
   const docks = [
     { title: t("obs.scenes"), body: scenesPanel },
     { title: t("obs.sources"), body: sourcesPanel },
-    { title: t("obs.audioMixer"), body: mixerPanel },
+    {
+      title: t("obs.audioMixer"),
+      body: mixerPanel,
+      tool: (
+        <div className="obs-mixer-tools">
+          {(settings?.obs_hidden_inputs?.length ?? 0) > 0 && (
+            <button
+              className="obs-mixer-rotate"
+              title={t("obs.showAllInputs")}
+              onClick={() => patchSettings({ obs_hidden_inputs: [] })}
+            >
+              <Icon name="eye" size={12} />
+            </button>
+          )}
+          <button
+            className="obs-mixer-rotate"
+            title={mixerVertical ? t("obs.mixerHorizontal") : t("obs.mixerVertical")}
+            onClick={() => setMixerVertical((v) => !v)}
+          >
+            <Icon name="rotate" size={12} />
+          </button>
+        </div>
+      ),
+    },
     { title: t("obs.transitions"), body: transitionsPanel },
     { title: t("obs.streamRecord"), body: controlsPanel },
   ];
@@ -770,7 +899,10 @@ export default function ObsController() {
       ref={containerRef}
     >
       <div className="obs-menu">
-        <span className="obs-menu-title">Pro WorshipCast</span>
+        <span className="obs-menu-title">
+          <Icon name="broadcast" size={13} color="#f87171" />
+          OBS Studio
+        </span>
         <span className="obs-menu-items">File · View · Docks · Help</span>
         <div className="obs-menu-right">
           <span className={`obs-status obs-${obsClient.status}`}>
@@ -809,7 +941,10 @@ export default function ObsController() {
                 className="obs-dock-panel"
                 style={{ flex: `0 0 ${dockWidths[i]}px` }}
               >
-                <h3>{d.title}</h3>
+                <h3>
+                  {d.title}
+                  {d.tool}
+                </h3>
                 <div className="obs-dock-body">{d.body}</div>
               </div>
               {i < docks.length - 1 && (

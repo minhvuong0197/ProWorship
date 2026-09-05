@@ -1,9 +1,8 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useState } from "react";
 import { useAppStore } from "../../store/useAppStore";
 import SettingsModal from "../Settings/SettingsModal";
 import CcliReportModal from "../CcliReportModal";
 import CalendarModal from "../CalendarModal";
-import { obsClient } from "../../lib/obs";
 import { useT } from "../../lib/i18n";
 import Icon from "../Icon/Icon";
 
@@ -18,6 +17,11 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
   const setStageMessage = useAppStore((s) => s.setStageMessage);
   const startCountdown = useAppStore((s) => s.startCountdown);
   const stopCountdown = useAppStore((s) => s.stopCountdown);
+  const outputOpen = useAppStore((s) => s.outputOpen);
+  const outputs = useAppStore((s) => s.outputs);
+  const stageOpen = useAppStore((s) => s.stageOpen);
+  const ndiInputActive = useAppStore((s) => s.ndiInputActive);
+  const diagnostics = useAppStore((s) => s.diagnostics);
 
   const [message, setMessage] = useState("");
   const [showSettings, setShowSettings] = useState(false);
@@ -25,12 +29,11 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [minutes, setMinutes] = useState("5");
   const [seconds, setSeconds] = useState("0");
-  const [, force] = useState(0);
 
-  useEffect(() => obsClient.subscribe(() => force((n) => n + 1)), []);
-
-  const obsConnected = obsClient.status === "connected";
   const countdownRunning = Boolean(live?.countdown_end);
+  const outputTitle = outputs.length > 0
+    ? outputs.map((output) => `${output.label}: ${output.monitor ?? "màn hình mặc định"}`).join(" | ")
+    : "Chưa có Output window";
 
   const sendMessage = () => setStageMessage(message);
 
@@ -109,34 +112,25 @@ export default function Toolbar({ onOpenShortcuts }: Props) {
         </button>
       </div>
 
-      {obsConnected && (
-        <>
-          <div className="toolbar-sep" />
-          <div className="toolbar-group" title="OBS">
-            {obsClient.action && (
-              <span className="toolbar-obs-action">{t(`obs.msg.${obsClient.action}`)}</span>
-            )}
-            <button
-              className={obsClient.streamActive ? "danger" : ""}
-              onClick={() => obsClient.toggleStream().catch(() => {})}
-              title={obsClient.streamActive ? t("toolbar.stopStream") : t("toolbar.stream")}
-            >
-              <Icon name="broadcast" className="btn-ic" />
-              {obsClient.streamActive ? t("toolbar.stopStream") : t("toolbar.stream")}
-            </button>
-            <button
-              className={obsClient.recordActive ? "danger" : ""}
-              onClick={() => obsClient.toggleRecord().catch(() => {})}
-              title={obsClient.recordActive ? t("toolbar.stopRecord") : t("toolbar.record")}
-            >
-              <Icon name="record" className="btn-ic" />
-              {obsClient.recordActive ? t("toolbar.stopRecord") : t("toolbar.record")}
-            </button>
-          </div>
-        </>
-      )}
-
       <div className="toolbar-spacer" />
+
+      <div
+        className="toolbar-health"
+        title={`${outputTitle}${diagnostics.length > 0 ? ` | Lỗi gần nhất: ${diagnostics[diagnostics.length - 1].message}` : " | Không có lỗi vận hành gần đây"}`}
+      >
+        <span className={`health-item ${outputOpen ? "online" : "offline"}`}>
+          <span className="health-dot" /> Output {outputOpen ? "ON" : "OFF"}
+        </span>
+        <span className={`health-item ${stageOpen ? "online" : "idle"}`}>
+          <span className="health-dot" /> Stage {stageOpen ? "ON" : "OFF"}
+        </span>
+        {outputs.length > 1 && <span className="health-item online">+{outputs.length - 1}</span>}
+        {ndiInputActive && (
+          <span className="health-item online">
+            <span className="health-dot" /> NDI
+          </span>
+        )}
+      </div>
 
       <div className="toolbar-actions">
         <button onClick={() => setShowCalendar(true)} title={t("toolbar.calendar")}>

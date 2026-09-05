@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "./store/useAppStore";
 import { obsClient } from "./lib/obs";
 import Toolbar from "./components/Toolbar/Toolbar";
 import ModeBar from "./components/ModeBar/ModeBar";
 import ProjectPanel from "./components/Project/ProjectPanel";
-import LibraryPanel from "./components/Library/LibraryPanel";
 import SongEditor from "./components/SongEditor/SongEditor";
 import Presentation from "./components/Presentation/Presentation";
 import EditPanel from "./components/Edit/EditPanel";
@@ -12,7 +11,6 @@ import MediaLibrary from "./components/MediaLibrary/MediaLibrary";
 import AudioLibrary from "./components/AudioLibrary/AudioLibrary";
 import BiblePanel from "./components/BiblePanel/BiblePanel";
 import LivePreview from "./components/LivePreview/LivePreview";
-import ServiceBar from "./components/ServiceBar/ServiceBar";
 import AudioPlayer from "./components/AudioPlayer";
 import AudioPlayerPanel from "./components/AudioPlayerPanel";
 import ObsController from "./components/ObsController/ObsController";
@@ -24,7 +22,7 @@ import Icon from "./components/Icon/Icon";
 import { MODE_ORDER } from "./lib/nav";
 import { useT } from "./lib/i18n";
 import { editBusy } from "./lib/editBusy";
-import type { CenterView, LibraryMode, ToolMode, EditorKind } from "./lib/nav";
+import type { CenterView, LibraryMode, ToolMode } from "./lib/nav";
 import type { ReactNode } from "react";
 
 const LIBRARY_ONLY = ["songs", "bible", "media", "audio"] as const;
@@ -52,6 +50,9 @@ function PanelHost({
 
 export default function App() {
   const loadAll = useAppStore((s) => s.loadAll);
+  const lastError = useAppStore((s) => s.lastError);
+  const reportError = useAppStore((s) => s.reportError);
+  const clearError = useAppStore((s) => s.clearError);
   const advanceLive = useAppStore((s) => s.advanceLive);
   const clearLive = useAppStore((s) => s.clearLive);
   const live = useAppStore((s) => s.live);
@@ -62,10 +63,61 @@ export default function App() {
   const setAudioState = useAppStore((s) => s.setAudioState);
   const [centerView, setCenterView] = useState<CenterView>({ kind: "show" });
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(220);
+  const [rightWidth, setRightWidth] = useState(300);
+  const resizeRef = useRef<{ side: "left" | "right"; startX: number; startW: number } | null>(null);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const r = resizeRef.current;
+      if (!r) return;
+      const dx = e.clientX - r.startX;
+      if (r.side === "left") {
+        setLeftWidth(Math.min(Math.max(140, r.startW + dx), 460));
+      } else {
+        setRightWidth(Math.min(Math.max(180, r.startW - dx), 520));
+      }
+    };
+    const onUp = () => {
+      resizeRef.current = null;
+      document.body.classList.remove("app-resizing");
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  const startResize = (side: "left" | "right") => (e: React.MouseEvent) => {
+    e.preventDefault();
+    resizeRef.current = {
+      side,
+      startX: e.clientX,
+      startW: side === "left" ? leftWidth : rightWidth,
+    };
+    document.body.classList.add("app-resizing");
+  };
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      reportError(event.reason, "Thao tác không thành công");
+      event.preventDefault();
+    };
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    return () => window.removeEventListener("unhandledrejection", onUnhandledRejection);
+  }, [reportError]);
+
+  useEffect(() => {
+    if (!lastError) return;
+    const timer = window.setTimeout(clearError, 8000);
+    return () => window.clearTimeout(timer);
+  }, [lastError, clearError]);
 
   useEffect(() => {
     const cfg = settings;
@@ -88,9 +140,9 @@ export default function App() {
 
   const onLibraryMode = (m: LibraryMode) => {
     setCenterView((prev) =>
-      prev.kind === "library" && prev.mode === m
+      prev.kind === "editor" && prev.editor === m
         ? { kind: "show" }
-        : { kind: "library", mode: m },
+        : { kind: "editor", editor: m },
     );
   };
 
@@ -100,10 +152,6 @@ export default function App() {
         ? { kind: "show" }
         : { kind: "tool", mode: m },
     );
-  };
-
-  const onOpenEditor = (editor: EditorKind, songId?: string | null) => {
-    setCenterView({ kind: "editor", editor, songId });
   };
 
   const onShow = () => setCenterView({ kind: "show" });
@@ -154,23 +202,14 @@ export default function App() {
             {
               const isBible =
                 centerView.kind === "editor" && centerView.editor === "bible";
+              if (isBible) {
+                window.dispatchEvent(new CustomEvent("pwc:bible-select-all"));
+                return;
+              }
               const main = document.querySelector("main.app-main");
               if (main) {
                 const range = document.createRange();
-                if (isBible) {
-                  const parts = main.querySelectorAll<HTMLElement>(".bible-fixed, .bible-scroll");
-                  if (parts.length && parts[0].firstChild && parts[parts.length - 1].lastChild) {
-                    range.setStart(parts[0], 0);
-                    range.setEnd(
-                      parts[parts.length - 1],
-                      parts[parts.length - 1].childNodes.length,
-                    );
-                  } else {
-                    range.selectNodeContents(main);
-                  }
-                } else {
-                  range.selectNodeContents(main);
-                }
+                range.selectNodeContents(main);
                 const sel = window.getSelection();
                 sel?.removeAllRanges();
                 sel?.addRange(range);
@@ -191,7 +230,6 @@ export default function App() {
 
       const currentMode = (): LibraryMode | ToolMode => {
         if (centerView.kind === "tool") return centerView.mode;
-        if (centerView.kind === "library") return centerView.mode;
         if (centerView.kind === "editor") return centerView.editor;
         return "songs";
       };
@@ -271,6 +309,14 @@ export default function App() {
   return (
     <div className="app-shell">
       <Toolbar onOpenShortcuts={() => setShowShortcuts(true)} />
+      {lastError && (
+        <div className="app-error-banner" role="alert">
+          <span>{lastError}</span>
+          <button className="app-error-dismiss" onClick={clearError} title="Đóng thông báo">
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      )}
       <ModeBar
         centerView={centerView}
         onLibraryMode={onLibraryMode}
@@ -278,14 +324,12 @@ export default function App() {
         onShow={onShow}
       />
       <div className="app-body">
-        <ProjectPanel onSelectShow={onShow} />
+        <div className="app-col-left" style={{ width: leftWidth }}>
+          <ProjectPanel onSelectShow={onShow} />
+        </div>
+        <div className="app-splitter" onMouseDown={startResize("left")} />
         <main className="app-main">
           {centerView.kind === "show" && <Presentation />}
-          {centerView.kind === "library" && (
-            <PanelHost onBack={() => setCenterView({ kind: "show" })}>
-              <LibraryPanel mode={centerView.mode} onOpenEditor={onOpenEditor} />
-            </PanelHost>
-          )}
           {centerView.kind === "tool" && centerView.mode === "edit" && (
             <PanelHost onBack={() => setCenterView({ kind: "show" })}>
               <EditPanel />
@@ -313,7 +357,10 @@ export default function App() {
           )}
           {centerView.kind === "editor" && centerView.editor === "songs" && (
             <PanelHost onBack={() => setCenterView({ kind: "show" })}>
-              <SongEditor initialSongId={centerView.songId ?? null} hideList />
+              <SongEditor
+                initialSongId={centerView.songId ?? null}
+                hideList={centerView.songId != null}
+              />
             </PanelHost>
           )}
           {centerView.kind === "editor" && centerView.editor === "bible" && (
@@ -332,11 +379,11 @@ export default function App() {
             </PanelHost>
           )}
         </main>
-        <aside className="app-right">
+        <div className="app-splitter" onMouseDown={startResize("right")} />
+        <aside className="app-right" style={{ width: rightWidth }}>
           <LivePreview />
         </aside>
       </div>
-      <ServiceBar />
       <AudioPlayerPanel />
       <AudioPlayer />
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}

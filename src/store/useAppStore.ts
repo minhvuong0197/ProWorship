@@ -21,8 +21,16 @@ import type {
   Template,
 } from "../lib/types";
 
+export interface DiagnosticEntry {
+  at: number;
+  level: "error";
+  message: string;
+}
+
 interface AppStateStore {
   loaded: boolean;
+  lastError: string | null;
+  diagnostics: DiagnosticEntry[];
   songs: Song[];
   editShows: EditShow[];
   media: MediaItem[];
@@ -34,6 +42,7 @@ interface AppStateStore {
   overlays: Overlay[];
   settings: AppSettings | null;
   live: LiveState | null;
+  armedLive: LiveState | null;
   monitors: MonitorInfo[];
   ccliLog: CcliLog[];
   companionInfo: CompanionInfo | null;
@@ -41,7 +50,16 @@ interface AppStateStore {
   stageOpen: boolean;
   outputs: OutputWindowInfo[];
   activePlaylistId: string | null;
+  ndiSources: string[];
+  ndiInputActive: boolean;
+  ndiInputSource: string | null;
   setActivePlaylistId: (id: string | null) => void;
+  reportError: (error: unknown, fallback?: string) => void;
+  recordDiagnostic: (message: string) => void;
+  clearError: () => void;
+  refreshNdiSources: () => Promise<void>;
+  startLiveInput: (name: string) => Promise<void>;
+  stopLiveInput: () => Promise<void>;
   loadAll: () => Promise<void>;
   saveSong: (song: Song) => Promise<void>;
   deleteSong: (id: string) => Promise<void>;
@@ -66,6 +84,9 @@ interface AppStateStore {
   refreshCompanionInfo: () => Promise<void>;
   setSettings: (settings: AppSettings) => Promise<void>;
   goLive: (live: LiveState) => Promise<void>;
+  armLive: (live: LiveState) => void;
+  clearArmedLive: () => void;
+  goLiveArmed: () => Promise<void>;
   setStageMessage: (message: string) => Promise<void>;
   clearLive: () => Promise<void>;
   advanceLive: (dir: number) => Promise<void>;
@@ -97,6 +118,8 @@ export const useAppStore = create<AppStateStore>()(
   persist(
     (set, get) => ({
   loaded: false,
+  lastError: null,
+  diagnostics: [],
   songs: [],
   editShows: [],
   media: [],
@@ -108,6 +131,7 @@ export const useAppStore = create<AppStateStore>()(
   overlays: [],
   settings: null,
   live: null,
+  armedLive: null,
   monitors: [],
   ccliLog: [],
   companionInfo: null,
@@ -115,7 +139,41 @@ export const useAppStore = create<AppStateStore>()(
   stageOpen: false,
   outputs: [],
   activePlaylistId: null,
+  ndiSources: [],
+  ndiInputActive: false,
+  ndiInputSource: null,
   setActivePlaylistId: (id) => set({ activePlaylistId: id }),
+  reportError: (error, fallback = "Thao tác không thành công") => {
+    const message = error instanceof Error ? error.message : String(error || fallback);
+    console.error("[ProWorship]", message);
+    const resolved = message || fallback;
+    const entry: DiagnosticEntry = { at: Date.now(), level: "error", message: resolved };
+    set((state) => ({
+      lastError: resolved,
+      diagnostics: [...state.diagnostics, entry].slice(-50),
+    }));
+  },
+  recordDiagnostic: (message) => {
+    const entry: DiagnosticEntry = { at: Date.now(), level: "error", message };
+    set((state) => ({ diagnostics: [...state.diagnostics, entry].slice(-50) }));
+  },
+  clearError: () => set({ lastError: null }),
+  refreshNdiSources: async () => {
+    try {
+      const sources = await api.ndiInputListSources();
+      set({ ndiSources: sources });
+    } catch {
+      set({ ndiSources: [] });
+    }
+  },
+  startLiveInput: async (name) => {
+    await api.ndiInputStart(name);
+    set({ ndiInputActive: true, ndiInputSource: name });
+  },
+  stopLiveInput: async () => {
+    await api.ndiInputStop();
+    set({ ndiInputActive: false, ndiInputSource: null });
+  },
   loadAll: async () => {
     if (get().loaded) return;
     if (!listenerReady) {
@@ -180,6 +238,7 @@ export const useAppStore = create<AppStateStore>()(
       });
     } catch (err) {
       console.error("loadAll failed", err);
+      get().reportError(err, "Không tải được dữ liệu ProWorship");
       set({ loaded: true });
     }
   },
@@ -341,8 +400,24 @@ export const useAppStore = create<AppStateStore>()(
   },
 
   goLive: async (live) => {
-    const updated = await api.setLiveState(live);
-    set({ live: updated });
+    try {
+      const updated = await api.setLiveState(live);
+      set({ live: updated });
+    } catch (err) {
+      get().reportError(err, "Không thể đưa slide lên Output");
+      throw err;
+    }
+  },
+
+  armLive: (live) => set({ armedLive: live }),
+
+  clearArmedLive: () => set({ armedLive: null }),
+
+  goLiveArmed: async () => {
+    const armed = get().armedLive;
+    if (!armed) return;
+    await get().goLive(armed);
+    set({ armedLive: null });
   },
 
   setStageMessage: async (message) => {
@@ -351,13 +426,23 @@ export const useAppStore = create<AppStateStore>()(
   },
 
   clearLive: async () => {
-    const updated = await api.clearLive();
-    set({ live: updated });
+    try {
+      const updated = await api.clearLive();
+      set({ live: updated });
+    } catch (err) {
+      get().reportError(err, "Không thể clear Output");
+      throw err;
+    }
   },
 
   advanceLive: async (dir) => {
-    const updated = await api.advanceLive(dir);
-    set({ live: updated });
+    try {
+      const updated = await api.advanceLive(dir);
+      set({ live: updated });
+    } catch (err) {
+      get().reportError(err, "Không thể chuyển slide");
+      throw err;
+    }
   },
 
   setOutputLocked: async (locked) => {

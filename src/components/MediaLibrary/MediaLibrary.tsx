@@ -76,6 +76,12 @@ export default function MediaLibrary() {
   const importMedia = useAppStore((s) => s.importMedia);
   const deleteMedia = useAppStore((s) => s.deleteMedia);
   const goLive = useAppStore((s) => s.goLive);
+  const ndiSources = useAppStore((s) => s.ndiSources);
+  const ndiInputActive = useAppStore((s) => s.ndiInputActive);
+  const ndiInputSource = useAppStore((s) => s.ndiInputSource);
+  const refreshNdiSources = useAppStore((s) => s.refreshNdiSources);
+  const startLiveInput = useAppStore((s) => s.startLiveInput);
+  const stopLiveInput = useAppStore((s) => s.stopLiveInput);
 
   const pickAndImport = async () => {
     try {
@@ -90,14 +96,22 @@ export default function MediaLibrary() {
 
   const goLiveBackground = (item: MediaItem) => {
     const base = live ?? defaultLive(settings);
+    const hasText =
+      base.current?.kind !== "media" && !!base.current?.text?.trim();
     const nextLive: LiveState = {
       ...base,
-      current: {
-        kind: "media",
-        title: item.name,
-        media_path: item.file_path,
-        background: item.file_path,
-      },
+      current: hasText && base.current
+        ? {
+            ...base.current,
+            media_path: item.file_path,
+            background: item.file_path,
+          }
+        : {
+            kind: "media",
+            title: item.name,
+            media_path: item.file_path,
+            background: item.file_path,
+          },
       next_text: null,
       next_label: null,
       background: item.file_path,
@@ -111,6 +125,27 @@ export default function MediaLibrary() {
   const removeMedia = (item: MediaItem) => {
     if (!window.confirm(`${t("media.deleteMedia")} "${item.name}"?`)) return;
     deleteMedia(item.id);
+  };
+
+  const goLiveSource = async (name: string) => {
+    await startLiveInput(name);
+    const base = live ?? defaultLive(settings);
+    const nextLive: LiveState = {
+      ...base,
+      current: {
+        kind: "media",
+        title: name,
+        live_source: name,
+        background: undefined,
+      },
+      next_text: null,
+      next_label: null,
+      background: null,
+      media_playing: true,
+      playlist_id: null,
+      playlist_entry_index: null,
+    };
+    await goLive(nextLive);
   };
 
   const isVideo = (item: MediaItem) =>
@@ -138,6 +173,45 @@ export default function MediaLibrary() {
         </button>
       </div>
       <div className="panel-body">
+        <div className="ndi-input-section">
+          <div className="ndi-input-head">
+            <h3>{t("ndi.title")}</h3>
+            <button className="secondary" onClick={() => refreshNdiSources()}>
+              <Icon name="broadcast" className="btn-ic" />
+              {t("ndi.scan")}
+            </button>
+            {ndiInputActive && (
+              <button
+                className="secondary danger"
+                onClick={() => stopLiveInput()}
+              >
+                <Icon name="stop" className="btn-ic" />
+                {t("ndi.stop")}
+              </button>
+            )}
+          </div>
+          {ndiSources.length === 0 ? (
+            <div className="empty-hint">{t("ndi.empty")}</div>
+          ) : (
+            <div className="ndi-source-list">
+              {ndiSources.map((name) => (
+                <div key={name} className="ndi-source-item">
+                  <div className="ndi-source-name" title={name}>
+                    {name}
+                  </div>
+                  <button
+                    className="primary"
+                    disabled={ndiInputActive && ndiInputSource === name}
+                    onClick={() => goLiveSource(name)}
+                  >
+                    <Icon name="play" className="btn-ic" />
+                    {t("ndi.goLive")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         {media.length === 0 ? (
           <div className="empty-hint">{t("media.empty")}</div>
         ) : visible.length === 0 ? (

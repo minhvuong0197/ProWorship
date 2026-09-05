@@ -1,4 +1,4 @@
-import { useLayoutEffect, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { UIEvent } from "react";
 import type { Layer, SlideDragData, SlideFormatting, Song, SongArrangement, SongSlide } from "../../lib/types";
 import { SLIDE_DRAG_TYPE, uid } from "../../lib/types";
@@ -9,8 +9,9 @@ import { FONT_OPTIONS, ensureFontsLoaded, vietnameseIssue } from "../../lib/font
 import { parseQuickPaste } from "../../lib/songImport";
 import Icon from "../Icon/Icon";
 import ImportExportModal from "../ImportExportModal";
-import PreviewSlide from "../LivePreview/PreviewSlide";
-import { invoke } from "@tauri-apps/api/core";
+import { DRAG_SONG } from "../../lib/nav";
+
+const MAX_SONG_HISTORY = 50;
 
 function newSong(): Song {
   return {
@@ -73,39 +74,6 @@ function newImageLayer(): Layer {
   };
 }
 
-// Lazy-mounts the full slide preview: only mounts once the item is close to
-// the viewport, so selecting a song doesn't build 24 autofit previews at once.
-function LazyPreview({ slide }: { slide: import("../../lib/types").LiveSlide | null }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === "undefined") {
-      setShow(true);
-      return;
-    }
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) {
-            setShow(true);
-            io.disconnect();
-          }
-        }
-      },
-      { rootMargin: "400px 0px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-  return (
-    <div ref={ref} style={{ position: "absolute", inset: 0 }}>
-      {show ? <PreviewSlide slide={slide} /> : null}
-    </div>
-  );
-}
-
 export default function SongEditor({
   initialSongId,
   hideList,
@@ -140,22 +108,46 @@ export default function SongEditor({
   const [dragBgOver, setDragBgOver] = useState<string | null>(null);
   const [activeSlideId, setActiveSlideId] = useState<string | null>(null);
   const [showImportExport, setShowImportExport] = useState(false);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const [renderCount, setRenderCount] = useState(24);
   const saveTimer = useRef<number | null>(null);
+  const historyRef = useRef<{ past: Song[]; future: Song[] }>({ past: [], future: [] });
+  const previousWorkRef = useRef<Song | null>(null);
+  const restoringHistoryRef = useRef(false);
 
   useEffect(() => {
     if (!selectedId) {
+      historyRef.current = { past: [], future: [] };
+      previousWorkRef.current = null;
       setWork(null);
       setActiveArrangement(null);
       setActiveSlideId(null);
       return;
     }
+    historyRef.current = { past: [], future: [] };
+    previousWorkRef.current = null;
     const song = songs.find((s) => s.id === selectedId);
     if (song) setWork(JSON.parse(JSON.stringify(song)));
     else setWork(null);
   }, [selectedId, songs]);
+
+  useEffect(() => {
+    if (!work) {
+      previousWorkRef.current = null;
+      return;
+    }
+    if (
+      previousWorkRef.current &&
+      !restoringHistoryRef.current &&
+      JSON.stringify(previousWorkRef.current) !== JSON.stringify(work)
+    ) {
+      historyRef.current.past = [
+        ...historyRef.current.past,
+        previousWorkRef.current,
+      ].slice(-MAX_SONG_HISTORY);
+      historyRef.current.future = [];
+    }
+    previousWorkRef.current = JSON.parse(JSON.stringify(work));
+    restoringHistoryRef.current = false;
+  }, [work]);
 
   useEffect(() => {
     return () => {
@@ -212,6 +204,44 @@ export default function SongEditor({
     if (saveTimer.current) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => saveSong(next), 350);
   };
+
+  const undo = () => {
+    if (!work || historyRef.current.past.length === 0) return;
+    const previous = historyRef.current.past.pop()!;
+    historyRef.current.future.push(JSON.parse(JSON.stringify(work)));
+    restoringHistoryRef.current = true;
+    setWork(previous);
+    scheduleSave(previous);
+  };
+
+  const redo = () => {
+    if (!work || historyRef.current.future.length === 0) return;
+    const next = historyRef.current.future.pop()!;
+    historyRef.current.past.push(JSON.parse(JSON.stringify(work)));
+    restoringHistoryRef.current = true;
+    setWork(next);
+    scheduleSave(next);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.code === "KeyZ" && e.shiftKey) {
+        e.preventDefault();
+        redo();
+      } else if (e.code === "KeyZ") {
+        e.preventDefault();
+        undo();
+      } else if (e.code === "KeyY") {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [work]);
 
   const updateWork = (patch: Partial<Song>) => {
     setWork((prev) => {
@@ -347,49 +377,6 @@ export default function SongEditor({
     const arrId = activeArrangement;
     const nextLive = songSlideLive(song, index, fallbackTitle, base, settings, templates, arrId);
     goLive({ ...nextLive, playlist_id: null, playlist_entry_index: null });
-  };
-
-  const gridLiveSlides = useMemo(() => {
-    if (!work) return [];
-    const base = live ?? defaultLive(settings);
-    return work.slides.map((_sl, index) =>
-      songSlideLive(work, index, work.title, base, settings, templates, activeArrangement).current,
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [work, settings, templates, activeArrangement]);
-
-  const liveSongIndex =
-    live && work && live.song_id === work.id ? live.song_slide_index : null;
-
-  useEffect(() => {
-    if (viewMode !== "grid" || liveSongIndex == null) return;
-    const grid = gridRef.current;
-    if (!grid) return;
-    const item = grid.querySelector<HTMLElement>(`[data-index="${liveSongIndex}"]`);
-    item?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [liveSongIndex, viewMode]);
-
-  useEffect(() => {
-    if (viewMode === "grid") setRenderCount(24);
-  }, [viewMode, work?.id]);
-
-  // Measure grid render cost on song selection (perf probe for the lazy
-  // preview work; fires once per selected song).
-  useLayoutEffect(() => {
-    if (!work) return;
-    const start = performance.now();
-    requestAnimationFrame(() => {
-      invoke("gpu_probe", {
-        report: `songs-grid-render ms=${(performance.now() - start).toFixed(1)} slides=${work.slides.length} rendered=${Math.min(renderCount, work.slides.length)}`,
-      }).catch(() => {});
-    });
-  }, [work?.id]);
-
-  const handleGridScroll = (e: UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 200) {
-      setRenderCount((c) => (work ? Math.max(c + 24, work.slides.length) : c));
-    }
   };
 
   // ---- Arrangement helpers ----
@@ -1121,14 +1108,6 @@ export default function SongEditor({
                 >
                   <Icon name="chevronDown" size={15} />
                 </button>
-                <button
-                  className="icon primary"
-                  disabled={!included}
-                  onClick={() => goLiveSlide(work, pos, work.title)}
-                  title={t("songs.goLive")}
-                >
-                  <Icon name="play" size={15} />
-                </button>
               </div>
             );
           })}
@@ -1331,100 +1310,6 @@ export default function SongEditor({
     );
   };
 
-  const renderSlidesGrid = () => {
-    if (!work) return null;
-    return (
-      <div className="slides-grid" ref={gridRef} onScroll={handleGridScroll}>
-        {work.slides.map((slide, index) => {
-          const liveSlide = gridLiveSlides[index];
-          const isLive = liveSongIndex === index;
-          const loaded = index < renderCount;
-          return (
-            <div
-              key={slide.id}
-              className={`slide-grid-item ${isLive ? "live" : ""} ${dragBgOver === slide.id ? "bg-over" : ""}`}
-              data-index={index}
-              draggable
-              onDragStart={(e) => {
-                const tag = (e.target as HTMLElement).tagName;
-                if (
-                  tag === "INPUT" ||
-                  tag === "TEXTAREA" ||
-                  tag === "SELECT" ||
-                  tag === "BUTTON"
-                ) {
-                  e.preventDefault();
-                  return;
-                }
-                const payload: SlideDragData = {
-                  songId: work.id,
-                  slideId: slide.id,
-                  title: work.title,
-                  label: slide.label,
-                };
-                e.dataTransfer.setData(SLIDE_DRAG_TYPE, JSON.stringify(payload));
-                e.dataTransfer.effectAllowed = "copy";
-              }}
-              onDragOver={(e) => {
-                if (!e.dataTransfer.types.includes("application/x-pwc-media")) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "copy";
-                if (dragBgOver !== slide.id) setDragBgOver(slide.id);
-              }}
-              onDragLeave={(e) => {
-                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-                if (dragBgOver === slide.id) setDragBgOver(null);
-              }}
-              onDrop={(e) => {
-                if (dragBgOver === slide.id) setDragBgOver(null);
-                const path = e.dataTransfer.getData("application/x-pwc-media");
-                if (!path) return;
-                e.preventDefault();
-                updateSlide(slide.id, { background: path });
-              }}
-            >
-              <button
-                className="slide-grid-preview"
-                onClick={() => goLiveSlide(work, index, work.title)}
-                title={t("songs.goLive")}
-              >
-                {loaded ? (
-                  <LazyPreview slide={liveSlide} />
-                ) : (
-                  <span className="slide-grid-skeleton" />
-                )}
-                {isLive && (
-                  <span className="slide-grid-live-badge">
-                    <Icon name="play" size={12} />
-                  </span>
-                )}
-              </button>
-              <button
-                className="slide-grid-delete"
-                title={t("songs.deleteSlide")}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeSlide(slide.id);
-                }}
-              >
-                <Icon name="x" size={12} />
-              </button>
-              <div className="slide-grid-footer">
-                <span className="slide-grid-index">{index + 1}</span>
-                <input
-                  className="slide-grid-label"
-                  value={slide.label}
-                  placeholder={t("songs.slideLabel")}
-                  onChange={(e) => updateSlide(slide.id, { label: e.target.value })}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
   const renderSlidesList = () => {
     if (!work) return null;
     return (
@@ -1513,14 +1398,6 @@ export default function SongEditor({
                   <option value={slide.background}>{(slide.background)}</option>
                 )}
               </select>
-              <button
-                className="primary"
-                onClick={() => goLiveSlide(work, index, work.title)}
-                title={t("songs.goLive")}
-              >
-                <Icon name="play" className="btn-ic" />
-                {t("songs.goLive")}
-              </button>
             </div>
             <textarea
               className="slide-text"
@@ -1631,22 +1508,6 @@ export default function SongEditor({
       <h2 style={{ fontSize: 13 }}>
         {t("songs.slides")} ({work ? work.slides.length : 0})
       </h2>
-      <div className="view-toggle" role="group" aria-label="Xem">
-        <button
-          className={`view-toggle-btn ${viewMode === "grid" ? "active" : ""}`}
-          onClick={() => setViewMode("grid")}
-          title={t("songs.gridView")}
-        >
-          <Icon name="grid" size={14} />
-        </button>
-        <button
-          className={`view-toggle-btn ${viewMode === "list" ? "active" : ""}`}
-          onClick={() => setViewMode("list")}
-          title={t("songs.listView")}
-        >
-          <Icon name="list" size={14} />
-        </button>
-      </div>
       <button onClick={addSlide}>
         <Icon name="plus" className="btn-ic" />
         {t("songs.addSlide")}
@@ -1657,7 +1518,7 @@ export default function SongEditor({
   const renderSlidesViews = () => (
     <>
       {renderSlidesHeader()}
-      {viewMode === "grid" ? renderSlidesGrid() : renderSlidesList()}
+      {renderSlidesList()}
     </>
   );
 
@@ -1798,6 +1659,22 @@ export default function SongEditor({
               {work?.title || t("songs.noTitle")}
             </div>
           </div>
+          <button
+            className="icon"
+            onClick={undo}
+            disabled={historyRef.current.past.length === 0}
+            title={`${t("shortcuts.action.undo")} (Ctrl+Z)`}
+          >
+            <Icon name="undo" size={15} />
+          </button>
+          <button
+            className="icon"
+            onClick={redo}
+            disabled={historyRef.current.future.length === 0}
+            title={`${t("shortcuts.action.redo")} (Ctrl+Y)`}
+          >
+            <Icon name="redo" size={15} />
+          </button>
           <button className="primary" onClick={() => setEditingId(null)}>
             {t("edit.done")}
           </button>
@@ -1845,6 +1722,11 @@ export default function SongEditor({
             <div
               key={song.id}
               className={`list-item ${selectedId === song.id ? "active" : ""}`}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(DRAG_SONG, JSON.stringify({ songId: song.id }));
+                e.dataTransfer.effectAllowed = "copy";
+              }}
               onClick={() => selectSong(song.id)}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -1897,7 +1779,6 @@ export default function SongEditor({
                 {t("songs.editSong")}
               </button>
             </div>
-            {renderSlidesGrid()}
           </div>
         )}
       </div>

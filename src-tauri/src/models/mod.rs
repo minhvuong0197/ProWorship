@@ -533,6 +533,8 @@ pub struct LiveSlide {
     pub text: Option<String>,
     pub label: Option<String>,
     pub media_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_source: Option<String>,
     pub background: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
@@ -695,6 +697,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub obs_auto_scene_switch: bool,
     #[serde(default)]
+    pub obs_hidden_inputs: Vec<String>,
+    #[serde(default)]
     pub obs_scene_lyric: String,
     #[serde(default)]
     pub obs_scene_camera: String,
@@ -734,6 +738,7 @@ impl Default for AppSettings {
             obs_port: 4455,
             obs_password: String::new(),
             obs_auto_scene_switch: false,
+            obs_hidden_inputs: Vec::new(),
             obs_scene_lyric: String::new(),
             obs_scene_camera: String::new(),
             obs_scene_blank: String::new(),

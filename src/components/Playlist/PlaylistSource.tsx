@@ -21,14 +21,14 @@ export default function PlaylistSource({ songs, onAddSong, onAddBible }: Props) 
           className={`source-tab ${tab === "songs" ? "active" : ""}`}
           onClick={() => setTab("songs")}
         >
-          <Icon name="music" size={13} />
+          <Icon name="music" size={13} color="#c084fc" />
           {t("playlist.sourceSongs")}
         </button>
         <button
           className={`source-tab ${tab === "bible" ? "active" : ""}`}
           onClick={() => setTab("bible")}
         >
-          <Icon name="book" size={13} />
+          <Icon name="bible" size={13} color="#5b9dff" />
           {t("playlist.sourceBible")}
         </button>
       </div>

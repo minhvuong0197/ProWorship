@@ -16,6 +16,10 @@ npm run tauri dev
 Cửa sổ **Control** sẽ mở lên. Bấm **"Mở Output"** ở toolbar để mở cửa sổ trình chiếu fullscreen
 trên màn hình bạn chọn (ví dụ màn hình projector nối ngoài).
 
+Trong lúc vận hành, có thể điều khiển live ngay cả khi Control không được focus:
+`Ctrl+Shift+Right` sang slide kế tiếp, `Ctrl+Shift+Left` quay lại, và `Ctrl+Shift+Space`
+để clear output. Icon ProWorship trong system tray cho phép hiện lại Control hoặc thoát app.
+
 ## Build bản release
 
 ```bash
@@ -94,6 +98,10 @@ write (`.tmp` + rename) để không hỏng file giữa chừng.
 > **> 500–1000 bài hát** (hoặc media > vài nghìn mục, hoặc khi ghi đĩa gây giật dù đã debounce)
 > thì nên migrate sang **SQLite** (`tauri-plugin-sql`). Migration không đổi API phía frontend:
 > giữ nguyên interface `lib/api.ts`, chỉ thay phần đọc/ghi trong `commands/*.rs`.
+
+Mỗi lần ghi thành công, app giữ hai bản backup gần nhất tại `data.json.backup-1` và
+`data.json.backup-2`. Khi khởi động, nếu `data.json` bị hỏng do sự cố nguồn điện hoặc process,
+app sẽ thử file `.tmp` và các backup hợp lệ gần nhất trước khi dùng state mặc định.
 
 ## Đã có (Phase 1 — khung sườn)
 

@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { AppSettings, Layer, LiveSlide, LiveState, LiveTransition, Overlay, SlideFormatting, Template, TemplateElement } from "../../lib/types";
 import PropsOverlay from "./PropsOverlay";
 import NativeVideo from "../NativeVideo";
+import LiveVideo from "../LiveVideo";
 import StyledText, { parseCss } from "../StyledText";
 import { applyVirtualBreaks, resolveDynamicValue } from "../../lib/live";
 import { transposeChords } from "../../lib/chords";
@@ -532,6 +533,15 @@ export function RenderSlide({
   }
 
   if (slide.kind === "media") {
+    if (slide.live_source) {
+      return (
+        <LiveVideo
+          source={slide.live_source}
+          mode="full"
+          className="media-asset full"
+        />
+      );
+    }
     return <Media path={slide.media_path} mode="full" playing={playing} />;
   }
 

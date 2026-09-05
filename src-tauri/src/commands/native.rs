@@ -85,6 +85,44 @@ pub fn ndi_output_frames_sent(state: State<AppState>) -> Result<u64, String> {
     Ok(state.ndi.frames_sent())
 }
 
+/// Danh sách nguồn NDI đang phát trên mạng LAN (tên đọc được từ find).
+#[tauri::command]
+pub fn ndi_input_list_sources() -> Result<Vec<String>, String> {
+    Ok(crate::native::ndi_input::NdiInput::list_sources())
+}
+
+/// Bật live video input: bắt đầu nhận frame từ nguồn NDI theo tên hiển thị.
+#[tauri::command]
+pub fn ndi_input_start(state: State<AppState>, name: String) -> Result<(), String> {
+    state.ndi_input.start(&name)
+}
+
+/// Tắt live video input (hủy receiver, dừng capture loop).
+#[tauri::command]
+pub fn ndi_input_stop(state: State<AppState>) -> Result<(), String> {
+    state.ndi_input.stop();
+    Ok(())
+}
+
+/// Live input đang bật/tắt?
+#[tauri::command]
+pub fn ndi_input_active(state: State<AppState>) -> Result<bool, String> {
+    Ok(state.ndi_input.is_active())
+}
+
+/// Frame mới nhất từ live input dạng payload đóng gói giống player pull
+/// (xem native/ndi_input.rs). Trả về None nếu chưa có frame nào.
+#[tauri::command]
+pub fn ndi_input_pull(state: State<AppState>) -> Result<Option<Vec<u8>>, String> {
+    Ok(state.ndi_input.pull())
+}
+
+/// Tên nguồn đang receive (None nếu đang tắt).
+#[tauri::command]
+pub fn ndi_input_source(state: State<AppState>) -> Result<Option<String>, String> {
+    Ok(state.ndi_input.source())
+}
+
 /// TEMP: log the WebView2/WebGPU capability report collected by the frontend
 /// (dev only, removed after Track 2 feasibility is confirmed).
 #[tauri::command]

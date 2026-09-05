@@ -485,15 +485,15 @@ export default function PreviewSlide({
         </div>
       );
     }
-    if (thumbnail) {
-      // Không có media nền: hiển thị ô caro xám đen như ProPresenter
-      // thay vì màu nền (thường là trắng) của template.
-      return <div className="preview-checkerboard" />;
-    }
     if (slide?.bg_color && slide.bg_color !== "#000000") {
       return (
         <div className="preview-blank" style={{ background: slide.bg_color, filter: bgFilter }} />
       );
+    }
+    if (thumbnail) {
+      // Không có media nền cũng như màu nền: hiển thị ô caro xám đen như
+      // ProPresenter để báo hiệu slide chưa có nền.
+      return <div className="preview-checkerboard" />;
     }
     return null;
   };

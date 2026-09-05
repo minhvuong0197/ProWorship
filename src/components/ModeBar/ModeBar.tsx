@@ -14,19 +14,19 @@ interface Props {
   onShow: () => void;
 }
 
-const LIBRARY_TABS: { key: LibraryMode; labelKey: string; icon: IconName }[] = [
-  { key: "songs", labelKey: "tab.songs", icon: "music" },
-  { key: "bible", labelKey: "tab.bible", icon: "book" },
-  { key: "media", labelKey: "tab.media", icon: "film" },
-  { key: "audio", labelKey: "tab.audio", icon: "audio" },
+const LIBRARY_TABS: { key: LibraryMode; labelKey: string; icon: IconName; color: string }[] = [
+  { key: "songs", labelKey: "tab.songs", icon: "music", color: "#c084fc" },
+  { key: "bible", labelKey: "tab.bible", icon: "bible", color: "#5b9dff" },
+  { key: "media", labelKey: "tab.media", icon: "image", color: "#34d399" },
+  { key: "audio", labelKey: "tab.audio", icon: "audio", color: "#fbbf24" },
 ];
 
-const TOOL_TABS: { key: ToolMode; labelKey: string; icon: IconName }[] = [
-  { key: "edit", labelKey: "tab.edit", icon: "layout" },
-  { key: "overlays", labelKey: "tab.overlays", icon: "layers" },
-  { key: "functions", labelKey: "tab.functions", icon: "grid" },
-  { key: "props", labelKey: "tab.props", icon: "presentation" },
-  { key: "obs", labelKey: "tab.obs", icon: "camera" },
+const TOOL_TABS: { key: ToolMode; labelKey: string; icon: IconName; color: string }[] = [
+  { key: "edit", labelKey: "tab.edit", icon: "layout", color: "#22d3ee" },
+  { key: "overlays", labelKey: "tab.overlays", icon: "layers", color: "#2dd4bf" },
+  { key: "functions", labelKey: "tab.functions", icon: "grid", color: "#94a3b8" },
+  { key: "props", labelKey: "tab.props", icon: "timer", color: "#f472b6" },
+  { key: "obs", labelKey: "tab.obs", icon: "broadcast", color: "#f87171" },
 ];
 
 export default function ModeBar({
@@ -37,11 +37,7 @@ export default function ModeBar({
 }: Props) {
   const t = useT();
   const activeLibrary =
-    centerView.kind === "library"
-      ? centerView.mode
-      : centerView.kind === "editor"
-        ? centerView.editor
-        : null;
+    centerView.kind === "editor" ? centerView.editor : null;
   return (
     <div className="modebar">
       <div className="modebar-group">
@@ -49,6 +45,7 @@ export default function ModeBar({
           className={centerView.kind === "show" ? "active" : ""}
           onClick={onShow}
           title={t("tab.presentation")}
+          style={{ "--tab-color": "#4ade80" } as React.CSSProperties}
         >
           <Icon name="presentation" size={14} />
           {t("tab.presentation")}
@@ -62,6 +59,7 @@ export default function ModeBar({
             className={activeLibrary === x.key ? "active" : ""}
             onClick={() => onLibraryMode(x.key)}
             title={t(x.labelKey)}
+            style={{ "--tab-color": x.color } as React.CSSProperties}
           >
             <Icon name={x.icon} size={14} />
             {t(x.labelKey)}
@@ -80,6 +78,7 @@ export default function ModeBar({
             }
             onClick={() => onToolMode(x.key)}
             title={t(x.labelKey)}
+            style={{ "--tab-color": x.color } as React.CSSProperties}
           >
             <Icon name={x.icon} size={14} />
             {t(x.labelKey)}

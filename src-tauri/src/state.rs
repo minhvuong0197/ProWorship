@@ -136,6 +136,9 @@ pub struct AppState {
     /// Shared NDI sink: the player auto-pumps frames into it when NDI output
     /// is on. `Arc` so the decode thread and the commands share the sender.
     pub ndi: Arc<crate::native::ndi::NdiOutput>,
+    /// Live video input: receives NDI sources so the WebView can display a
+    /// camera/livestream as a slide (see native/ndi_input.rs).
+    pub ndi_input: crate::native::ndi_input::NdiInput,
     pub save: Mutex<SaveCoalescer>,
 }
 
@@ -157,6 +160,7 @@ impl AppState {
             edit_shows: Mutex::new(Vec::new()),
             native_player: PlayerManager::default(),
             ndi: Arc::new(crate::native::ndi::NdiOutput::default()),
+            ndi_input: crate::native::ndi_input::NdiInput::default(),
             save: Mutex::new(SaveCoalescer::new()),
         }
     }
@@ -248,6 +252,42 @@ fn data_tmp_file(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(data_file(app)?.with_extension("json.tmp"))
 }
 
+fn backup_file(path: &Path, generation: u8) -> PathBuf {
+    path.with_file_name(format!(
+        "{}.backup-{}",
+        path.file_name().unwrap_or_default().to_string_lossy(),
+        generation
+    ))
+}
+
+fn rotate_backups(path: &Path) {
+    let backup_1 = backup_file(path, 1);
+    let backup_2 = backup_file(path, 2);
+    if backup_2.exists() {
+        let _ = fs::remove_file(&backup_2);
+    }
+    if backup_1.exists() {
+        let _ = fs::rename(&backup_1, &backup_2);
+    }
+    if path.exists() {
+        let _ = fs::copy(path, &backup_1);
+    }
+}
+
+fn read_persisted_data(path: &Path) -> Option<PersistedData> {
+    let candidates = [
+        path.to_path_buf(),
+        path.with_extension("json.tmp"),
+        backup_file(path, 1),
+        backup_file(path, 2),
+    ];
+    candidates.into_iter().find_map(|candidate| {
+        fs::read_to_string(candidate)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<PersistedData>(&raw).ok())
+    })
+}
+
 /// Atomically replace `dst` with `src`. On Windows `fs::rename` cannot
 /// overwrite an existing file, so use `MoveFileExW` (replace + flush). On
 /// other platforms a plain rename is already atomic.
@@ -297,16 +337,7 @@ pub fn load_from_disk(app: &AppHandle, state: &AppState) {
         Ok(p) => p,
         Err(_) => return,
     };
-    // Prefer data.json; if it is missing (crash between replace steps) fall
-    // back to the leftover .tmp written right before the atomic swap.
-    let raw = fs::read_to_string(&path).ok().or_else(|| {
-        data_tmp_file(app)
-            .ok()
-            .and_then(|t| fs::read_to_string(&t).ok())
-    });
-    let Some(raw) = raw else { return };
-    match serde_json::from_str::<PersistedData>(&raw) {
-        Ok(data) => {
+    if let Some(data) = read_persisted_data(&path) {
             if let Ok(mut s) = state.songs.lock() {
                 *s = data.songs;
             }
@@ -347,8 +378,6 @@ pub fn load_from_disk(app: &AppHandle, state: &AppState) {
             if let Ok(mut es) = state.edit_shows.lock() {
                 *es = data.edit_shows;
             }
-        }
-        Err(_) => {}
     }
 }
 
@@ -459,6 +488,7 @@ fn write_to_disk(app: &AppHandle, state: &AppState) {
         // file so a crash mid-write never corrupts data.json.
         if let Ok(tmp) = data_tmp_file(app) {
             if fs::write(&tmp, json).is_ok() {
+                rotate_backups(&path);
                 let _ = replace_file(&tmp, &path);
             }
         }
@@ -647,5 +677,56 @@ mod tests {
         // JSON hỏng: load_from_disk xử lý Err một cách an toàn — từ_str chỉ báo lỗi.
         assert!(serde_json::from_str::<PersistedData>("not-json-{").is_err());
         assert!(serde_json::from_str::<PersistedData>("[1,2,3]").is_err());
+    }
+
+    #[test]
+    fn persisted_data_falls_back_to_valid_backup_when_primary_is_corrupt() {
+        let dir = std::env::temp_dir().join(format!("pwcp_recovery_{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("data.json");
+        let backup = backup_file(&path, 1);
+        let expected = PersistedData {
+            songs: vec![crate::models::Song {
+                id: "backup-song".into(),
+                title: "Recovered song".into(),
+                artist: String::new(),
+                key: String::new(),
+                ccli: String::new(),
+                copyright: String::new(),
+                slides: Vec::new(),
+                arrangements: Vec::new(),
+                template_id: None,
+                created_at: 0,
+                updated_at: 0,
+            }],
+            ..Default::default()
+        };
+        fs::write(&path, "corrupt").unwrap();
+        fs::write(&backup, serde_json::to_string(&expected).unwrap()).unwrap();
+
+        let loaded = read_persisted_data(&path).expect("backup should be readable");
+        assert_eq!(loaded.songs[0].id, "backup-song");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn backup_rotation_keeps_two_generations() {
+        let dir = std::env::temp_dir().join(format!("pwcp_rotation_{}", std::process::id()));
+        let _ = fs::create_dir_all(&dir);
+        let path = dir.join("data.json");
+        let backup_1 = backup_file(&path, 1);
+        let backup_2 = backup_file(&path, 2);
+
+        fs::write(&path, "current").unwrap();
+        rotate_backups(&path);
+        assert_eq!(fs::read_to_string(&backup_1).unwrap(), "current");
+
+        fs::write(&path, "new-current").unwrap();
+        rotate_backups(&path);
+        assert_eq!(fs::read_to_string(&backup_1).unwrap(), "new-current");
+        assert_eq!(fs::read_to_string(&backup_2).unwrap(), "current");
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

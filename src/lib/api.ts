@@ -232,4 +232,14 @@ export const api = {
   },
 
   mediaUrl: (path: string): string => convertFileSrc(path),
+
+  ndiInputListSources: (): Promise<string[]> =>
+    invoke("ndi_input_list_sources"),
+  ndiInputStart: (name: string): Promise<void> =>
+    invoke("ndi_input_start", { name }),
+  ndiInputStop: (): Promise<void> => invoke("ndi_input_stop"),
+  ndiInputActive: (): Promise<boolean> => invoke("ndi_input_active"),
+  ndiInputPull: (): Promise<ArrayBuffer | null> =>
+    invoke("ndi_input_pull"),
+  ndiInputSource: (): Promise<string | null> => invoke("ndi_input_source"),
 };

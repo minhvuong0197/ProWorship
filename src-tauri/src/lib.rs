@@ -8,7 +8,10 @@ mod server;
 mod state;
 
 use state::{load_from_disk, seed_default_templates, AppState};
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
+use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 /// Percent-decode a URL-encoded string (used for the media:// path segment).
 fn percent_decode(s: &str) -> String {
@@ -137,6 +140,45 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+                    let next = Shortcut::new(
+                        Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                        Code::ArrowRight,
+                    );
+                    let previous = Shortcut::new(
+                        Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                        Code::ArrowLeft,
+                    );
+                    let clear = Shortcut::new(
+                        Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                        Code::Space,
+                    );
+                    if shortcut == &next {
+                        let _ = commands::output::advance_live(
+                            app.clone(),
+                            app.state::<AppState>(),
+                            1,
+                        );
+                    } else if shortcut == &previous {
+                        let _ = commands::output::advance_live(
+                            app.clone(),
+                            app.state::<AppState>(),
+                            -1,
+                        );
+                    } else if shortcut == &clear {
+                        let _ = commands::output::clear_live(
+                            app.clone(),
+                            app.state::<AppState>(),
+                        );
+                    }
+                })
+                .build(),
+        )
         .manage(AppState::new())
         // Track 2: serve the latest decoded frame over a custom scheme so the
         // WebView can fetch raw RGBA without the invoke/IPC overhead.
@@ -160,8 +202,61 @@ pub fn run() {
         .register_uri_scheme_protocol("media", |ctx, request| {
             serve_media(ctx.app_handle(), &request)
         })
+        // Live video input: serve the latest NDI-captured frame over a custom
+        // scheme (same packed pull format as `frames://` so the frontend
+        // LiveVideo renderer can reuse the header parsing).
+        .register_uri_scheme_protocol("live", |ctx, _request| {
+            let state = ctx.app_handle().state::<AppState>();
+            let bytes = state.ndi_input.pull().unwrap_or_default();
+            tauri::http::Response::builder()
+                .header("Content-Type", "application/octet-stream")
+                .header("Cache-Control", "no-store")
+                .header("Access-Control-Allow-Origin", "*")
+                .body(bytes)
+                .unwrap_or_else(|e| {
+                    tauri::http::Response::builder()
+                        .status(500)
+                        .body(format!("live error: {e}").into_bytes())
+                        .unwrap()
+                })
+        })
         .setup(|app| {
             let handle = app.handle();
+            let next = Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::ArrowRight,
+            );
+            let previous = Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::ArrowLeft,
+            );
+            let clear = Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::SHIFT),
+                Code::Space,
+            );
+            let global_shortcut = app.global_shortcut();
+            global_shortcut.register(next)?;
+            global_shortcut.register(previous)?;
+            global_shortcut.register(clear)?;
+
+            let show = MenuItem::with_id(app, "show", "Show Control", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Exit ProWorship", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&show, &quit])?;
+            TrayIconBuilder::new()
+                .menu(&menu)
+                .tooltip("ProWorship")
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .build(app)?;
+
             let state = handle.state::<AppState>();
             load_from_disk(handle, &state);
             seed_default_templates(handle, &state);
@@ -242,6 +337,12 @@ pub fn run() {
             commands::native::ndi_output_stop,
             commands::native::ndi_output_active,
             commands::native::ndi_output_frames_sent,
+            commands::native::ndi_input_list_sources,
+            commands::native::ndi_input_start,
+            commands::native::ndi_input_stop,
+            commands::native::ndi_input_active,
+            commands::native::ndi_input_pull,
+            commands::native::ndi_input_source,
             commands::native::gpu_probe,
             commands::player::native_video_play,
             commands::player::native_video_stop,

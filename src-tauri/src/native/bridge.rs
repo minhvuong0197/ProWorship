@@ -116,6 +116,27 @@ mod ffi {
         /// Send one RGBA frame. Returns true if accepted.
         fn send_frame(self: &NdiSender, rgba: &[u8], width: i32, height: i32) -> bool;
     }
+
+    // ---- NDI Input (cpp/src/ndi_input.cpp) ----
+    unsafe extern "C++" {
+        include!("core.h");
+
+        type NdiReceiver;
+
+        /// Create an unconnected NDI receiver.
+        fn new_ndi_receiver() -> UniquePtr<NdiReceiver>;
+        /// Attach the receiver to a source by its readable name.
+        fn connect(self: Pin<&mut NdiReceiver>, name: &str) -> bool;
+        /// Capture the latest video frame as JPEG, or empty when none yet.
+        fn capture_jpeg(self: Pin<&mut NdiReceiver>, quality: u8) -> Vec<u8>;
+        fn width(self: &NdiReceiver) -> i32;
+        fn height(self: &NdiReceiver) -> i32;
+        fn fps(self: &NdiReceiver) -> f64;
+        #[allow(dead_code)]
+        fn is_connected(self: &NdiReceiver) -> bool;
+        /// Discover NDI sources currently on the LAN; returns readable names.
+        fn ndi_list_sources() -> Vec<String>;
+    }
 }
 
 pub use ffi::*;

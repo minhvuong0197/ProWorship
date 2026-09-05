@@ -1,4 +1,4 @@
-@import "./global.css";
+﻿@import "./global.css";
 
 html,
 body,
@@ -23,8 +23,8 @@ body {
   justify-content: center;
   gap: 40px;
   background:
-    radial-gradient(900px 420px at 50% -20%, rgba(79, 140, 255, 0.18), transparent 65%),
-    radial-gradient(700px 380px at 85% 115%, rgba(124, 77, 255, 0.16), transparent 60%),
+    radial-gradient(900px 420px at 50% -20%, rgba(154, 160, 168, 0.18), transparent 65%),
+    radial-gradient(700px 380px at 85% 115%, rgba(90, 96, 104, 0.16), transparent 60%),
     var(--bg);
 }
 

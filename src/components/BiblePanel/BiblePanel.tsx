@@ -10,6 +10,7 @@ import { useAppStore } from "../../store/useAppStore";
 import { defaultLive, resolveBibleStyle } from "../../lib/live";
 import { useT } from "../../lib/i18n";
 import { uid } from "../../lib/types";
+import { DRAG_BIBLE } from "../../lib/nav";
 import Icon from "../Icon/Icon";
 import BibleInterlinearModal from "../BibleInterlinearModal";
 
@@ -47,6 +48,8 @@ export default function BiblePanel() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const scrollTo = useRef<number | null>(null);
   const searchTimer = useRef<number | null>(null);
+  const clickTimer = useRef<number | null>(null);
+  const pendingAddRef = useRef<{ start: number; end: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const quickInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -100,6 +103,7 @@ export default function BiblePanel() {
     api.listBibleVersions().then(setVersions).catch(console.error);
     return () => {
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
+      if (clickTimer.current) window.clearTimeout(clickTimer.current);
     };
   }, []);
 
@@ -194,6 +198,19 @@ export default function BiblePanel() {
   }, [selectedAbbrev, selectedChapter, curVersion, onlineBooks]);
 
   useEffect(() => {
+    const onSelectAll = () => {
+      if (!chapter) return;
+      setSelected(
+        new Set(
+          chapter.verses.map((_, i) => i).filter((i) => chapter.verses[i]?.trim()),
+        ),
+      );
+    };
+    window.addEventListener("pwc:bible-select-all", onSelectAll);
+    return () => window.removeEventListener("pwc:bible-select-all", onSelectAll);
+  }, [chapter]);
+
+  useEffect(() => {
     if (scrollTo.current != null && chapter) {
       const el = document.getElementById(`bible-v-${scrollTo.current}`);
       if (el) {
@@ -224,8 +241,11 @@ export default function BiblePanel() {
         const last = lastPresentableIndex();
         if (pendingJump.end != null && pendingJump.end > (pendingJump.start ?? 0)) {
           goLiveRange(pendingJump.start ?? 1, pendingJump.end);
+          consumePendingAdd(pendingJump.start ?? 1, pendingJump.end);
         } else {
-          goLiveVerse(pendingJump.start == null ? last : pendingJump.start - 1);
+          const v = pendingJump.start == null ? last : pendingJump.start - 1;
+          goLiveVerse(v);
+          consumePendingAdd(pendingJump.start ?? 1, pendingJump.start ?? 1);
         }
       }
       setPendingJump(null);
@@ -334,8 +354,7 @@ export default function BiblePanel() {
     const text = ch.verses[verseIndex];
     if (!text) return;
     const verseNum = verseIndex + 1;
-    const reference = `${ch.name} ${ch.chapter}:${verseNum}`;
-    const base = live ?? defaultLive(settings);
+    const reference = `${ch.name} ${ch.chapter}:${verseNum}`;    const base = live ?? defaultLive(settings);
     goLive({
       ...base,
       current: {
@@ -356,15 +375,34 @@ export default function BiblePanel() {
     setCurIdx(verseIndex);
   };
 
+  const dragVerse = (e: React.DragEvent, ch: BibleChapter, verseIndex: number) => {
+    const text = ch.verses[verseIndex];
+    if (!text) return;
+    e.dataTransfer.setData(
+      DRAG_BIBLE,
+      JSON.stringify({
+        version: curVersion,
+        versionName: curVersionMeta?.name ?? "",
+        abbrev: ch.abbrev,
+        name: ch.name,
+        chapter: ch.chapter,
+        verseStart: verseIndex + 1,
+        verseEnd: verseIndex + 1,
+        text: `${verseIndex + 1} ${text}`,
+        templateId: curVersionMeta?.template_id,
+      }),
+    );
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
   const presentChapterRange = (ch: BibleChapter, startVerse: number, endVerse: number) => {
-    const idx: number[] = [];
-    for (let k = startVerse; k <= endVerse; k++) idx.push(k);
-    const text = idx
-      .map((i) => `${i} ${ch.verses[i - 1] ?? ""}`)
-      .filter((s) => s.trim())
-      .join("\n\n");
-    if (!text.trim()) return;
-    const reference = `${ch.name} ${ch.chapter}:${startVerse}${startVerse !== endVerse ? `-${endVerse}` : ""}`;
+    if (startVerse === endVerse) {
+      presentChapterVerse(ch, startVerse - 1);
+      return;
+    }
+    const firstText = ch.verses[startVerse - 1];
+    if (!firstText?.trim()) return;
+    const reference = `${ch.name} ${ch.chapter}:${startVerse}-${endVerse}`;
     const base = live ?? defaultLive(settings);
     goLive({
       ...base,
@@ -372,10 +410,10 @@ export default function BiblePanel() {
         kind: "song",
         title: reference,
         label: reference,
-        text,
+        text: `${startVerse} ${firstText}`,
         background: base.background ?? undefined,
         ...resolveBibleStyle(settings, templates, curVersionMeta?.template_id),
-        bible_ref: `${ch.abbrev}|${ch.chapter}|${startVerse}|${endVerse}|${ch.name}|${curVersionMeta?.name ?? ""}`,
+        bible_ref: `${ch.abbrev}|${ch.chapter}|${startVerse}|${startVerse}|${ch.name}|${curVersionMeta?.name ?? ""}|${startVerse}|${endVerse}`,
       },
       next_text: null,
       next_label: null,
@@ -404,9 +442,16 @@ export default function BiblePanel() {
   ) => {
     setResults(null);
     if (abbrev === selectedAbbrev && ch === selectedChapter) {
-      if (start == null) goLiveVerse(lastPresentableIndex());
-      else if (end != null && end >= start) goLiveRange(start, end);
-      else goLiveVerse(start - 1);
+      if (start == null) {
+        goLiveVerse(lastPresentableIndex());
+        consumePendingAdd(1, 1);
+      } else if (end != null && end >= start) {
+        goLiveRange(start, end);
+        consumePendingAdd(start, end);
+      } else {
+        goLiveVerse(start - 1);
+        consumePendingAdd(start, start);
+      }
       return;
     }
     setPendingJump({ abbrev, chapter: ch, start, end });
@@ -599,11 +644,14 @@ export default function BiblePanel() {
       setQuickErr("");
       setSelected(new Set());
       const { abbrev, chapter: ch, start, end } = parsed;
+      const rStart = start ?? 1;
+      const rEnd = end ?? rStart;
+      pendingAddRef.current = { start: rStart, end: rEnd };
       if (start == null) {
         gotoChapter(abbrev, ch, 1);
         return;
       }
-      gotoChapter(abbrev, ch, start, end ?? start);
+      gotoChapter(abbrev, ch, rStart, rEnd);
       return;
     }
     if (query.trim()) setQuickErr(t("bible.quickNotFound"));
@@ -634,12 +682,14 @@ export default function BiblePanel() {
   const goLiveSelection = () => {
     if (!chapter || selected.size === 0 || !rangeRef) return;
     const idx = [...selected].sort((a, b) => a - b);
-    const text = idx
-      .map((i) => `${i + 1} ${chapter.verses[i] ?? ""}`)
-      .filter((s) => s.trim())
-      .join("\n\n");
     const firstIdx = idx[0];
+    const lastIdx = idx[idx.length - 1];
+    const verseNum = firstIdx + 1;
+    const endVerse = lastIdx + 1;
+    const text = `${verseNum} ${chapter.verses[firstIdx] ?? ""}`;
+    if (!text.trim()) return;
     const base = live ?? defaultLive(settings);
+    const isRange = firstIdx !== lastIdx;
     goLive({
       ...base,
       current: {
@@ -649,7 +699,7 @@ export default function BiblePanel() {
         text,
         background: base.background ?? undefined,
         ...resolveBibleStyle(settings, templates, curVersionMeta?.template_id),
-        bible_ref: `${chapter.abbrev}|${chapter.chapter}|${firstIdx + 1}|${idx[idx.length - 1] + 1}|${chapter.name}|${curVersionMeta?.name ?? ""}`,
+        bible_ref: `${chapter.abbrev}|${chapter.chapter}|${verseNum}|${verseNum}|${chapter.name}|${curVersionMeta?.name ?? ""}${isRange ? `|${verseNum}|${endVerse}` : ""}`,
       },
       next_text: null,
       next_label: null,
@@ -657,17 +707,61 @@ export default function BiblePanel() {
       playlist_entry_index: null,
       bible_version: curVersion,
     });
-    if (firstIdx != null) setCurIdx(firstIdx);
+    setCurIdx(firstIdx);
   };
 
   const addSelectionToPlaylist = () => {
     if (!chapter || selected.size === 0 || !rangeRef) return;
     const idx = [...selected].sort((a, b) => a - b);
+    const startVerse = idx[0] + 1;
+    const endVerse = idx[idx.length - 1] + 1;
+    const target = playlists.find((p) => p.id === activePlaylistId) ?? playlists[0] ?? null;
+    if (!target) {
+      window.alert(t("bible.noPlaylist"));
+      return;
+    }
     const text = idx
       .map((i) => `${i + 1} ${chapter.verses[i] ?? ""}`)
       .filter((s) => s.trim())
       .join("\n\n");
-    const ref = `${chapter.abbrev}|${chapter.chapter}|${idx[0] + 1}|${idx[idx.length - 1] + 1}|${curVersionMeta?.name ?? ""}`;
+    if (!text.trim()) return;
+    savePlaylist({
+      ...target,
+      entries: [
+        ...target.entries,
+        {
+          id: uid(),
+          kind: "bible",
+          ref_id: `${chapter.abbrev}|${chapter.chapter}|${startVerse}|${endVerse}|${curVersionMeta?.name ?? ""}`,
+          title: rangeRef,
+          text,
+          estimated_duration_sec: 60,
+        },
+      ],
+    });
+    setActivePlaylistId(target.id);
+  };
+
+  const addRangeToPlaylist = (
+    ch: BibleChapter,
+    startVerse: number,
+    endVerse: number,
+  ) => {
+    const text = Array.from(
+      { length: Math.max(1, endVerse - startVerse + 1) },
+      (_, k) => {
+        const n = startVerse + k;
+        const v = ch.verses[n - 1] ?? "";
+        return `${n} ${v}`;
+      },
+    )
+      .filter((s) => s.trim())
+      .join("\n\n");
+    if (!text.trim()) return;
+    const reference = `${ch.name} ${ch.chapter}:${startVerse}${
+      startVerse !== endVerse ? `-${endVerse}` : ""
+    }`;
+    const ref = `${ch.abbrev}|${ch.chapter}|${startVerse}|${endVerse}|${curVersionMeta?.name ?? ""}`;
     const target = playlists.find((p) => p.id === activePlaylistId) ?? playlists[0] ?? null;
     if (!target) {
       window.alert(t("bible.noPlaylist"));
@@ -681,14 +775,22 @@ export default function BiblePanel() {
           id: uid(),
           kind: "bible",
           ref_id: ref,
-          title: rangeRef,
+          title: reference,
           text,
           estimated_duration_sec: 60,
         },
       ],
     });
     setActivePlaylistId(target.id);
-    window.alert(`${t("bible.addedToPlaylist")} "${target.name}"`);
+  };
+
+  const consumePendingAdd = (startVerse: number, endVerse: number) => {
+    if (!pendingAddRef.current) return;
+    const { start, end } = pendingAddRef.current;
+    pendingAddRef.current = null;
+    if (start === startVerse && end === endVerse && chapter) {
+      addRangeToPlaylist(chapter, start, end);
+    }
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -870,7 +972,7 @@ export default function BiblePanel() {
   );
 
   return (
-    <div className="panel" style={{ flexDirection: "row" }}>
+    <div className="panel bible-panel" style={{ flexDirection: "row" }}>
       <div className="source-pane" style={{ width: 280 }}>
         <div className="panel-head">
           <h2>{t("bible.title")}</h2>
@@ -1021,7 +1123,7 @@ export default function BiblePanel() {
             className={`source-tab ${leftTab === "books" ? "active" : ""}`}
             onClick={() => setLeftTab("books")}
           >
-            <Icon name="book" size={13} />
+            <Icon name="bible" size={13} />
             {t("playlist.bibleBook")}
           </button>
           <button
@@ -1167,21 +1269,42 @@ export default function BiblePanel() {
                           key={i}
                           id={`bible-v-${i + 1}`}
                           className={`bible-verse${selected.has(i) ? " sel" : ""}${curIdx === i ? " presenting" : ""}`}
-                          onClick={() => toggleSelect(i)}
-                          title={t("bible.selectVerse")}
+                          draggable
+                          onDragStart={(e) => dragVerse(e, chapter, i)}
+                          onClick={(e) => {
+                            if (e.ctrlKey || e.metaKey) {
+                              toggleSelect(i);
+                              return;
+                            }
+                            if (selected.size === 0) {
+                              goLiveVerse(i);
+                              return;
+                            }
+                            if (clickTimer.current) {
+                              window.clearTimeout(clickTimer.current);
+                              clickTimer.current = null;
+                            }
+                            clickTimer.current = window.setTimeout(() => {
+                              clickTimer.current = null;
+                              setSelected(new Set());
+                              goLiveVerse(i);
+                            }, 250);
+                          }}
+                          onDoubleClick={() => {
+                            if (clickTimer.current) {
+                              window.clearTimeout(clickTimer.current);
+                              clickTimer.current = null;
+                            }
+                            if (selected.size > 0) {
+                              addSelectionToPlaylist();
+                            } else {
+                              goLiveVerse(i);
+                            }
+                          }}
+                          title={t("bible.golive")}
                         >
                           <span className="bible-vno">{i + 1}</span>
                           <span className="bible-text">{text}</span>
-                          <button
-                            className="icon primary bible-golive"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              goLiveVerse(i);
-                            }}
-                            title={t("bible.golive")}
-                          >
-                            <Icon name="play" size={15} />
-                          </button>
                           {editMode && (
                             <button
                               className="icon bible-editbtn"

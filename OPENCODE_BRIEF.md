@@ -3,7 +3,7 @@
 Bối cảnh: Tauri v2 (Rust backend) + React/TypeScript frontend + C++ core (FFmpeg decode,
 NDI output) nối qua `cxx`. ~9.300 dòng Rust, ~16.200 dòng TS/TSX, ~7.100 dòng CSS.
 Repo đã có sẵn `ARCHITECTURE.md`, `README.md`, `ProWorship_fix_brief.md`,
-`6-huong-giam-rui-ro.md` — đọc cả 4 file này trước khi bắt đầu, đừng lặp lại hướng đã
+`ARCHITECTURE.md` — đọc các quyết định kiến trúc trước khi bắt đầu, đừng lặp lại hướng đã
 thử và loại bỏ.
 
 ## Quy tắc bắt buộc trong suốt phiên làm việc
@@ -60,7 +60,7 @@ thử và loại bỏ.
 ### A4. Tách kênh dữ liệu tần suất cao khỏi Tauri event system
 - Rà soát: dữ liệu tần suất cao (frame video, clock đồng bộ) hiện có đang đi qua Tauri
   event (`emit`/`listen`) không? Nếu có, đây là điểm nghẽn tiềm ẩn (xem mục 7.4
-  `6-huong-giam-rui-ro.md`).
+  `ARCHITECTURE.md`).
 - Nếu phát hiện events đang bị dùng cho dữ liệu tần suất cao gây nghẽn (đo cụ thể): tách
   sang `crossbeam-channel`/`tokio::sync`, giữ Tauri event cho thông báo trạng thái tần
   suất thấp (`live-update` và tương tự).
@@ -116,7 +116,7 @@ thử và loại bỏ.
 - Rà `src-tauri/cpp/src/video_engine.cpp` và `ndi_output.cpp` xem có gọi Win32 API trực
   tiếp không (ngoài phần bắt buộc qua `windows-sys` ở Rust).
 - Chỉ cần liệt kê và ghi chú — **không tự ý sửa để hỗ trợ macOS/Linux** trừ khi có yêu
-  cầu rõ ràng (đúng mục 6 `6-huong-giam-rui-ro.md`: giới hạn nền tảng theo nhu cầu thực
+  cầu rõ ràng (đúng nguyên tắc giới hạn nền tảng theo nhu cầu thực
   tế, hiện ưu tiên Windows).
 
 ---

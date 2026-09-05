@@ -1,5 +1,15 @@
 # Pro WorshipCast
 
+## License
+
+ProWorship is available under the Apache License 2.0. Forks and commercial use are
+permitted under that license. The copyright holder may also offer separate commercial
+licenses, support, services, or proprietary distributions.
+
+Third-party components, including the NDI SDK, FFmpeg builds, fonts, and media assets,
+remain subject to their own licenses. See [LICENSE](LICENSE) and the relevant notices
+before redistributing a release bundle.
+
 Phần mềm trình chiếu thờ phượng (worship presentation software) — Tauri v2 (Rust) + React/TypeScript.
 Kiến trúc mở rộng theo hướng FreeShow / ProPresenter: Song Library, Media Library, Playlist, Live Output đa màn hình.
 

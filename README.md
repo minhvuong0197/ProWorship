@@ -11,7 +11,7 @@ remain subject to their own licenses. See [LICENSE](LICENSE) and the relevant no
 before redistributing a release bundle.
 
 Phần mềm trình chiếu thờ phượng (worship presentation software) — Tauri v2 (Rust) + React/TypeScript.
-Kiến trúc mở rộng theo hướng FreeShow / ProPresenter: Song Library, Media Library, Playlist, Live Output đa màn hình.
+Kiến trúc tập trung vào Song Library, Media Library, Playlist và Live Output đa màn hình.
 
 ### Công nghệ cốt lõi
 
@@ -108,7 +108,7 @@ hướng tương lai, không phải trạng thái hiện tại.
 2. Frontend gọi lệnh Rust `set_live_state` → Rust cập nhật `AppState.live` và **emit event
    `live-update`** tới toàn bộ app (Tauri event system).
 3. Cửa sổ **Output** (`OutputView.tsx`) lắng nghe event này và crossfade sang nội dung mới bằng CSS
-   transition — tách biệt hoàn toàn khỏi cửa sổ Control, y hệt cách ProPresenter/FreeShow tách
+  transition — tách biệt hoàn toàn khỏi cửa sổ Control để bảo đảm màn hình trình chiếu ổn định,
    Control ↔ Stage/Output.
 4. Nếu Output window bị đóng/mở lại, nó tự gọi `get_live_state` để đồng bộ lại trạng thái hiện tại.
 
@@ -150,7 +150,7 @@ app sẽ thử file `.tmp` và các backup hợp lệ gần nhất trước khi 
 - [x] Stage Display là window thường (không fullscreen ép buộc) vì thường đặt trong 1 khung nhỏ
   trên màn hình sân khấu, khác với Output luôn fullscreen trên máy chiếu
 
-## Đã có (Phase 3 — Tính năng kiểu FreeShow)
+## Đã có (Phase 3 — Live workflow và media)
 
 - [x] **Điều hướng slide** (`advance_live`): bấm **Space / → / N / PageDown** để sang slide kế tiếp,
   **← / P / PageUp** để quay lại, **B** để Clear Live. Đi theo ngữ cảnh: trong bài hát đi hết thì
@@ -160,7 +160,7 @@ app sẽ thử file `.tmp` và các backup hợp lệ gần nhất trước khi 
   lượng/Dừng ngay trong LivePreview, auto dừng khi hết bài.
 - [x] **Audio trong Playlist**: mục `audio` trong chương trình, khi Go Live sẽ phát làm nhạc nền.
 - [x] **Video control**: play/pause video trên Output và LivePreview (`set_media_playing`).
-- [x] **Templates trình chiếu** (kiểu FreeShow Themes): định nghĩa màu chữ, màu nền, cỡ chữ (vh),
+- [x] **Templates trình chiếu**: định nghĩa màu chữ, màu nền, cỡ chữ (vh),
   căn lề (trái/giữa/phải), vị trí (trên/giữa/dưới) cho slide. Chọn template mặc định trong Cài đặt,
   mỗi slide bài hát có thể gán template riêng. Output render theo template tự động.
 - [x] **Ghi chú per slide** (`SongSlide.notes`): hiện trên Stage Display cho nhạc công, không hiện
@@ -186,7 +186,7 @@ app sẽ thử file `.tmp` và các backup hợp lệ gần nhất trước khi 
   - [x] **Auto scene switch**: trong Cài đặt OBS gán scene cho trạng thái lyric/camera/blank, khi
         "Go Live" theo loại nội dung thì app tự chuyển scene tương ứng (map `live.current.kind`)
   - [x] Đăng ký `eventSubscriptions` (Scenes/Inputs/Outputs/…) để nhận event thời gian thực như
-        FreeShow/obs-websocket-js
+        OBS WebSocket protocol
   - [x] Lưu cấu hình OBS (host/port/password, auto scene switch) vào `AppSettings`
   - [x] **Màn hình điều khiển OBS ngay trong app**: tab **OBS** ở Sidebar (thay modal cũ) — kết nối,
         scene grid, nút Stream/Record, audio mixer, auto scene switch

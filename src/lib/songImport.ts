@@ -3,8 +3,8 @@ import type { Song, SongSlide } from "./types";
 import { uid } from "./types";
 
 export type ImportFormat =
-  | "propresenter"
-  | "freeshow"
+  | "legacyXmlJson"
+  | "legacyShowJson"
   | "openlp"
   | "opensong"
   | "easyslides"
@@ -455,8 +455,8 @@ function parseEasySlides(content: string): Song[] {
   return songs;
 }
 
-// ----- ProPresenter XML (Pro 4 / 5 / 6) -----
-// Text is stored base64 + RTF hex encoded. Decoders ported from FreeShow.
+// ----- Legacy XML presenter format -----
+// Text is stored base64 + RTF hex encoded. The decoder handles the legacy export format.
 
 function decodeBase64Chars(text: string): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -630,7 +630,7 @@ function collectProTexts(textElement: Element): string[] {
   return texts;
 }
 
-function parseProPresenterXml(content: string): Song | null {
+function parseLegacyXml(content: string): Song | null {
   const doc = parseXml(content);
   if (!doc) return null;
   const root = doc.documentElement;
@@ -677,7 +677,7 @@ function parseProPresenterXml(content: string): Song | null {
   return makeSong(title || "Imported song", slides, { artist, ccli, copyright });
 }
 
-// ----- ProPresenter JSON (Pro 6 / 7 exports) -----
+// ----- Legacy presenter JSON format -----
 
 function decodeRTF(b64: string): string {
   if (!b64) return "";
@@ -688,7 +688,7 @@ function decodeRTF(b64: string): string {
   }
 }
 
-function parseProPresenterJson(content: string): Song[] {
+function parseLegacyJson(content: string): Song[] {
   const data = JSON.parse(content);
   const songs: Song[] = [];
 
@@ -774,9 +774,9 @@ function parseProPresenterJson(content: string): Song[] {
   return songs;
 }
 
-// ----- FreeShow .shows (JSON) -----
+// ----- Legacy show JSON format -----
 
-function parseFreeShowJson(content: string): Song[] {
+function parseLegacyShowJson(content: string): Song[] {
   const data = JSON.parse(content);
   const items = Array.isArray(data)
     ? data
@@ -860,18 +860,18 @@ export function parseImportContent(content: string, filePath: string, format: Im
     } catch {
       // fall through
     }
-  } else if (format === "propresenter") {
+  } else if (format === "legacyXmlJson") {
     try {
-      const fromJson = parseProPresenterJson(content);
+      const fromJson = parseLegacyJson(content);
       if (fromJson.length) return fromJson;
     } catch {
       // not JSON — try XML
     }
-    const fromXml = parseProPresenterXml(content);
+    const fromXml = parseLegacyXml(content);
     if (fromXml) return [fromXml];
-  } else if (format === "freeshow") {
+  } else if (format === "legacyShowJson") {
     try {
-      const fromFs = parseFreeShowJson(content);
+      const fromFs = parseLegacyShowJson(content);
       if (fromFs.length) return fromFs;
     } catch {
       // fall through
@@ -889,11 +889,11 @@ export function parseImportContent(content: string, filePath: string, format: Im
     // .db / .sqlite are binary databases — handled by looksBinary guard
   }
 
-  // Auto-detect XML (OpenLyrics / OpenSong / EasySlides / ProPresenter XML)
+  // Auto-detect XML (OpenLyrics / OpenSong / EasySlides / legacy presenter XML)
   if (trimmed.startsWith("<")) {
     const song = parseOpenLyrics(content) ?? parseOpenSong(content);
     if (song) return [song];
-    const pro = parseProPresenterXml(content);
+    const pro = parseLegacyXml(content);
     if (pro) return [pro];
     const es = parseEasySlides(content);
     if (es.length) return es;

@@ -119,7 +119,7 @@ export function useAutoFitText(text: string, opts: AutoFitOptions): AutoFitRetur
         hi = Math.max(opts.minFont, opts.capFont, opts.maxUnit ?? 60);
         best = largestFittingFont(opts.minFont, hi, fits);
       } else {
-        // FreeShow shrinkToFit semantics: render at the authored size (capFont)
+        // Keep authored font size as the upper bound while fitting the slide.
         // whenever it fits; only shrink when the text overflows the box.
         hi = Math.max(opts.minFont, opts.capFont);
         best = largestFittingFont(opts.minFont, hi, fits);

@@ -100,7 +100,7 @@ describe("applyVirtualBreaks", () => {
   });
 });
 
-describe("resolveDynamicValue tokens (WorshipCast + ProPresenter style)", () => {
+describe("resolveDynamicValue tokens", () => {
   const slide = {
     title: "Way Maker",
     label: "V1",
@@ -115,14 +115,14 @@ describe("resolveDynamicValue tokens (WorshipCast + ProPresenter style)", () => 
     expect(resolveDynamicValue("{text}", slide)).toBe("Verse one");
   });
 
-  it("resolves ProPresenter-style %TOKEN% keys", () => {
+  it("resolves compatible %TOKEN% keys", () => {
     expect(resolveDynamicValue("%TITLE% / %SLIDE_LABEL%", slide)).toBe(
       "Way Maker / V1",
     );
     expect(resolveDynamicValue("%TEXT%", slide)).toBe("Verse one");
   });
 
-  it("resolves ProPresenter Bible tokens from bible_ref", () => {
+  it("resolves compatible Bible tokens from bible_ref", () => {
     expect(resolveDynamicValue("%BIBLENAME% %BIBLECHAPTER%:%BIBLEVERSES%", slide)).toBe(
       "VPS 1925 1:1-4",
     );

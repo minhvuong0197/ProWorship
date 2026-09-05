@@ -2187,7 +2187,7 @@ body.app-resizing {
   inset: 0;
 }
 
-/* N?n caro x�m den ki?u ProPresenter khi slide kh�ng c� media n?n. */
+/* Nền caro xám đen khi slide không có media nền. */
 .preview-checkerboard {
   position: absolute;
   inset: 0;
@@ -6304,7 +6304,7 @@ button.sm {
 }
 
 
-/* ---------- Presentation (ProPresenter-like center) ---------- */
+/* ---------- Presentation center ---------- */
 .presentation {
   display: flex;
   flex-direction: column;

@@ -26,7 +26,7 @@ export default function ImportExportModal({ onClose }: Props) {
   const songs = useAppStore((s) => s.songs);
   const saveSong = useAppStore((s) => s.saveSong);
   const [activeTab, setActiveTab] = useState<"import" | "export">("import");
-  const [selectedFormat, setSelectedFormat] = useState<string>("propresenter");
+  const [selectedFormat, setSelectedFormat] = useState<string>("legacyXmlJson");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<Status | null>(null);
 
@@ -131,8 +131,8 @@ export default function ImportExportModal({ onClose }: Props) {
                   onChange={(e) => setSelectedFormat(e.target.value)}
                   style={{ width: "100%", padding: 8, marginTop: 4, background: "var(--bg-surface, #1e1e24)", color: "#fff", border: "1px solid var(--border, #333)", borderRadius: 6 }}
                 >
-                  <option value="propresenter">{t("import.fmtProPresenter")}</option>
-                  <option value="freeshow">{t("import.fmtFreeShow")}</option>
+                  <option value="legacyXmlJson">{t("import.fmtLegacyXmlJson")}</option>
+                  <option value="legacyShowJson">{t("import.fmtLegacyShowJson")}</option>
                   <option value="openlp">{t("import.fmtOpenLp")}</option>
                   <option value="opensong">{t("import.fmtOpenSong")}</option>
                   <option value="easyslides">{t("import.fmtEasySlides")}</option>

@@ -465,7 +465,7 @@ export default function PreviewSlide({
   slide: LiveSlide | null | undefined;
   playing?: boolean;
   chroma?: boolean;
-  /** Chế độ thumbnail (lưới tab Shows): nền media tắt → nền caro xám đen như ProPresenter. */
+  /** Chế độ thumbnail: nền media tắt để giữ preview nhẹ và dễ đọc. */
   thumbnail?: boolean;
 }) {
   const s: Partial<LiveSlide> = slide ?? {};
@@ -492,7 +492,7 @@ export default function PreviewSlide({
     }
     if (thumbnail) {
       // Không có media nền cũng như màu nền: hiển thị ô caro xám đen như
-      // ProPresenter để báo hiệu slide chưa có nền.
+      // Nền caro báo hiệu slide chưa có background.
       return <div className="preview-checkerboard" />;
     }
     return null;

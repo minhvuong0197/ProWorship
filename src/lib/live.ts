@@ -43,7 +43,7 @@ const PCT_ALIASES: Record<string, string> = {
 };
 
 /**
- * Thay thế token dạng `{token}` (WorshipCast) và `%TOKEN%` (kiểu ProPresenter)
+ * Thay thế token dạng `{token}` và `%TOKEN%` để hỗ trợ template tương thích.
  * bằng giá trị động của slide hiện tại. Dùng chung cho preview, output và
  * helper của template editor — giữ nguyên cùng một tập token.
  */

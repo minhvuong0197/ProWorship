@@ -386,6 +386,15 @@ button.icon {
   background: rgba(229, 83, 75, 0.12);
 }
 
+.player-error {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--danger);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .toolbar-group select,
 .toolbar-group input[type="text"],
 .toolbar-group input[type="number"] {

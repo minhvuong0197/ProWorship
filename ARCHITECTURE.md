@@ -174,6 +174,7 @@ Cả hai track **vẫn được giữ song song** — Track 2 (Rust decode → r
 | 2026-09-05 | **Live error reporting**: Zustand store giữ `lastError`; các lệnh go-live/clear/advance báo lỗi tập trung, Control window hiển thị banner có dismiss/tự ẩn và bắt `unhandledrejection`. Output window không bị phủ bởi UI thông báo. |
 | 2026-09-05 | **Output health diagnostics**: Toolbar hiển thị trạng thái Output/Stage/extra outputs/NDI và monitor đích; store giữ ring log 50 lỗi gần nhất để chẩn đoán nhanh trong lúc vận hành. |
 | 2026-09-05 | **Phase 2 editing/live workflow**: SongEditor có undo/redo tối đa 50 snapshot với Ctrl/Cmd+Z/Y; Presentation hỗ trợ arm slide bằng chuột phải, hiển thị cue trong LivePreview và chỉ đưa lên Output sau xác nhận Go Live. |
+| 2026-09-05 | **Audio reliability**: `AudioEngine` phát lỗi media/play rejection vào `PlayerState`, chuyển trạng thái về stopped khi thất bại; AudioPlayerPanel hiển thị lỗi và cho phép retry thay vì nuốt lỗi im lặng. |
 | [Điền ngày] | Thêm Video Engine (FFmpeg) + NDI Output (C++ core qua cxx) |
 | [Điền ngày] | Đổi RGBA thô → keyed format (JPEG màu + alpha mask) để giảm chi phí IPC |
 | [Điền ngày] | Gỡ StrictMode ở các cửa sổ NativeVideo, sửa lỗi giật chớp lúc khởi động |

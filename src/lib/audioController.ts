@@ -22,6 +22,7 @@ export type PlayerState = {
   crossfadeMs: number;
   currentTime: number;
   duration: number;
+  error: string | null;
 };
 
 type Listener = (state: PlayerState) => void;
@@ -50,13 +51,19 @@ class AudioEngine {
     crossfadeMs: 3000,
     currentTime: 0,
     duration: 0,
+    error: null,
   };
 
   constructor() {
     for (const el of [this.a, this.b]) {
       el.preload = "auto";
       el.addEventListener("ended", () => this.handleEnded(el));
-      el.addEventListener("error", () => {});
+      el.addEventListener("error", () => {
+        if (el !== this.active) return;
+        const code = el.error?.code;
+        const detail = code ? ` (mã ${code})` : "";
+        this.setState({ playing: false, error: `Không phát được file audio${detail}` });
+      });
       el.addEventListener("loadedmetadata", () => {
         if (el === this.active) this.updateMeta();
       });
@@ -148,6 +155,7 @@ class AudioEngine {
       crossfadeMs: opts?.crossfadeMs ?? this.state.crossfadeMs,
       currentTime: 0,
       duration: 0,
+      error: null,
     });
     if (opts?.play) this.play();
   }
@@ -162,7 +170,11 @@ class AudioEngine {
       }
     }
     const p = this.active.play();
-    if (p) p.catch(() => {});
+    if (p) {
+      p.catch(() => {
+        this.setState({ playing: false, error: "Trình duyệt chặn phát audio hoặc file không hợp lệ" });
+      });
+    }
     this.setState({ playing: true });
   }
 
@@ -188,8 +200,13 @@ class AudioEngine {
       playing: false,
       currentTime: 0,
       duration: 0,
+      error: null,
     });
     if (wasLive) api.setAudioState(false).catch(() => {});
+  }
+
+  clearError(): void {
+    this.setState({ error: null });
   }
 
   next(): void {
@@ -270,7 +287,7 @@ class AudioEngine {
     if (s.loop === "single") {
       this.active.currentTime = 0;
       const p = this.active.play();
-      if (p) p.catch(() => {});
+      if (p) p.catch(() => this.setState({ playing: false, error: "Không thể lặp lại file audio" }));
       return;
     }
     let idx: number | null = null;
@@ -313,7 +330,7 @@ class AudioEngine {
       nextEl.volume = 0;
       nextEl.src = convertFileSrc(track.file_path);
       const p = nextEl.play();
-      if (p) p.catch(() => {});
+      if (p) p.catch(() => this.setState({ playing: false, error: "Không thể chuyển sang track audio kế tiếp" }));
       this.fadeOutIn(nextEl, old, fadeMs);
     } else {
       this.pauseAll();
@@ -321,7 +338,7 @@ class AudioEngine {
       this.active.src = convertFileSrc(track.file_path);
       this.active.volume = clamp(s.volume, 0, 1);
       const p = this.active.play();
-      if (p) p.catch(() => {});
+      if (p) p.catch(() => this.setState({ playing: false, error: "Không thể phát track audio kế tiếp" }));
     }
     this.setState({ index, currentTime: 0, duration: 0 });
   }

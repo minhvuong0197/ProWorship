@@ -23,7 +23,12 @@ export default function AudioPlayerPanel() {
   const t = useT();
   const st = useEngineState();
   const setAudioState = useAppStore((s) => s.setAudioState);
+  const reportError = useAppStore((s) => s.reportError);
   const [showMastering, setShowMastering] = useState(false);
+
+  useEffect(() => {
+    if (st.error) reportError(st.error);
+  }, [st.error, reportError]);
 
   if (st.source === "idle" || st.tracks.length === 0) return null;
 
@@ -51,6 +56,7 @@ export default function AudioPlayerPanel() {
         <div className="player-meta">
           {st.index + 1} / {st.tracks.length}
         </div>
+        {st.error && <div className="player-error" title={st.error}>{st.error}</div>}
       </div>
       <div className="player-main">
         <div className="player-controls">
@@ -64,7 +70,10 @@ export default function AudioPlayerPanel() {
           <button
             className="icon player-play"
             title={st.playing ? t("player.pause") : t("player.play")}
-            onClick={() => audioEngine.togglePlay()}
+            onClick={() => {
+              audioEngine.clearError();
+              audioEngine.togglePlay();
+            }}
           >
             <Icon name={st.playing ? "pause" : "play"} size={16} />
           </button>

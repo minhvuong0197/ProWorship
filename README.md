@@ -13,6 +13,18 @@ before redistributing a release bundle.
 Phần mềm trình chiếu thờ phượng (worship presentation software) — Tauri v2 (Rust) + React/TypeScript.
 Kiến trúc mở rộng theo hướng FreeShow / ProPresenter: Song Library, Media Library, Playlist, Live Output đa màn hình.
 
+### Công nghệ cốt lõi
+
+| Thành phần | Công nghệ | Vai trò |
+|---|---|---|
+| Desktop runtime | Tauri v2 | Đóng gói ứng dụng Windows và quản lý multi-window/IPC |
+| Backend | Rust | State, commands, persistence, server LAN và điều phối native |
+| Frontend | React + TypeScript | Control UI, Output, Stage, editor và live workflow |
+| Native media core | C++ | FFmpeg video decode, libjpeg-turbo và NDI SDK qua `cxx` |
+
+GitHub phân loại React/TSX vào TypeScript và Tauri vào framework/runtime, nên trang
+Languages không hiển thị hai mục riêng tên “React” và “Tauri”.
+
 ## Chạy thử (dev)
 
 Yêu cầu: Node.js ≥ 18, Rust stable + `cargo`, Tauri CLI prerequisites cho hệ điều hành của bạn

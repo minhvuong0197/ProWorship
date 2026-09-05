@@ -1243,7 +1243,7 @@ fn open_output_on_label(
         label,
         WebviewUrl::App("output.html".into()),
     )
-    .title("Pro WorshipFlow - Output")
+    .title("ProWorship - Output")
     .decorations(false)
     .resizable(false)
     .skip_taskbar(true)
@@ -1376,7 +1376,7 @@ pub async fn open_stage_window(app: AppHandle) -> Result<(), String> {
         "stage",
         WebviewUrl::App("stage.html".into()),
     )
-    .title("Pro WorshipFlow - Stage")
+    .title("ProWorship - Stage")
     .inner_size(1280.0, 300.0)
     .build();
     if let Ok(win) = win {
@@ -1423,7 +1423,7 @@ pub async fn open_template_editor_window(app: AppHandle, template_id: Option<Str
         "template-editor",
         WebviewUrl::App(url.into()),
     )
-    .title("Pro WorshipFlow - Template Editor")
+    .title("ProWorship - Template Editor")
     .inner_size(1320.0, 840.0)
     .min_inner_size(960.0, 620.0);
     let _ = builder.build();

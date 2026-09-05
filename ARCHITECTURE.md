@@ -1,4 +1,4 @@
-# Kiến trúc ProWorshipCast — Native Media Pipeline
+# Kiến trúc ProWorship — Native Media Pipeline
 
 > File này ghi lại các quyết định kiến trúc quan trọng liên quan đến việc tích hợp C++ vào backend Tauri v2 + Rust, lý do lựa chọn, và các đánh đổi đã cân nhắc. Cập nhật file này mỗi khi có thay đổi kiến trúc lớn — đừng để quyết định chỉ tồn tại trong lịch sử chat.
 

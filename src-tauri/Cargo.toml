@@ -1,13 +1,13 @@
 [package]
-name = "pro-worshipcast"
-version = "0.2.0"
+name = "proworship"
+version = "1.0.0"
 license = "Apache-2.0"
-description = "Pro WorshipCast - Worship presentation software"
+description = "ProWorship - Worship presentation software"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "pro_worshipcast_lib"
+name = "proworship_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

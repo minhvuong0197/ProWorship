@@ -407,7 +407,7 @@ pub fn run() {
             commands::output::stop_service_timeline,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Pro WorshipFlow")
+        .expect("error while building ProWorship")
         .run(|app_handle, event| {
             // Flush đồng bộ dữ liệu còn "bẩn" xuống đĩa trước khi process kết
             // thúc — debounce ghi đĩa không được làm mất dữ liệu khi đóng app.

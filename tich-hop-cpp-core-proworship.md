@@ -1,4 +1,4 @@
-# SPEC: Tích hợp C++ Core vào ProWorshipCast (Tauri v2 + Rust)
+# SPEC: Tích hợp C++ Core vào ProWorship (Tauri v2 + Rust)
 
 > Tài liệu này dùng làm prompt/chỉ thị đầu vào cho AI coding agent (opencode, DeepSeek, v.v.) để thực thi việc tích hợp một lõi xử lý viết bằng C++ vào backend Rust của ứng dụng Tauri v2 hiện có. Agent cần đọc toàn bộ tài liệu trước khi bắt đầu, xác nhận hiểu đúng cấu trúc dự án, rồi mới thực thi từng bước.
 
@@ -6,7 +6,7 @@
 
 ## 1. Bối cảnh dự án
 
-**Tên phần mềm:** ProWorshipCast — phần mềm trình chiếu lời bài hát / Kinh Thánh / media cho buổi thờ phượng (tương tự ProPresenter).
+**Tên phần mềm:** ProWorship — phần mềm trình chiếu lời bài hát / Kinh Thánh / media cho buổi thờ phượng (tương tự ProPresenter).
 
 **Stack hiện tại:**
 - Desktop shell: **Tauri v2** (Rust backend + WebView frontend)
@@ -59,7 +59,7 @@ fn main() {
         .file("cpp/src/core.cpp")
         .include("cpp/include")
         .flag_if_supported("-std=c++17")
-        .compile("proworshipcast_core");
+        .compile("proworship_core");
 
     println!("cargo:rerun-if-changed=src/native/bridge.rs");
     println!("cargo:rerun-if-changed=cpp/src/core.cpp");
@@ -120,7 +120,7 @@ C++ core trong phạm vi task này **chỉ gồm 2 module**:
 ### 3.2 NDI Output (`cpp/src/ndi_output.cpp`)
 - Gửi hình ảnh từ Output window qua mạng LAN cho phần mềm khác (vMix, OBS Studio, các switcher hỗ trợ NDI)
 - Lý do bắt buộc dùng C++: NDI SDK của NewTek/Vizrt chỉ phát hành dưới dạng thư viện C/C++, không có binding Rust chính thức đáng tin cậy — bắt buộc phải FFI qua C++.
-- ⚠️ Trước khi triển khai, cần tải và đọc kỹ **NDI SDK License Agreement** để xác nhận điều khoản phân phối phù hợp với việc bán/phân phối ProWorshipCast (xem Mục 4).
+- ⚠️ Trước khi triển khai, cần tải và đọc kỹ **NDI SDK License Agreement** để xác nhận điều khoản phân phối phù hợp với việc bán/phân phối ProWorship (xem Mục 4).
 
 ### Ghi chú triển khai cho Agent
 - Mỗi module tương ứng với **một `unsafe extern "C++"` block riêng** trong `src/native/bridge.rs` (hoặc tách file bridge riêng: `video_bridge.rs`, `ndi_bridge.rs`, rồi `include!` chung qua `mod.rs`), để lỗi biên dịch của module này không chặn module kia.
@@ -176,6 +176,6 @@ Nếu trong quá trình triển khai Video Engine (3.1), agent nhận thấy c�
 - [x] Xác nhận chức năng cụ thể ở Mục 3 — đã thu hẹp còn 2 module C++: Video Engine (3.1) + NDI Output (3.2)
 - [x] Xác nhận hướng xử lý cho các chức năng còn lại (audio, ảnh, font) — dùng crate Rust thuần, xem Phụ lục A
 - [x] Xác nhận môi trường build đã có FFmpeg (dev libs: libavcodec, libavformat, libavutil, libswscale) — đã cài qua vcpkg: `D:\vcpkg\installed\x64-windows-static-md` (static libs + dynamic CRT /MD, FFmpeg 9.0)
-- [x] Tải và đọc kỹ NDI SDK License Agreement, xác nhận điều khoản phù hợp với việc phân phối/bán ProWorshipCast trước khi triển khai module 3.2 — đã chuyển sang NDI SDK chính thức (NDI 6 SDK) tại `C:\Program Files\NDI\NDI 6 SDK\`, license PDF: `C:\Program Files\NDI\NDI 6 SDK\NDI SDK License Agreement.pdf`; agent đã build + test pass với SDK này. Người dùng đã xác nhận ProWorshipCast phân phối theo mô hình mã nguồn mở, điều khoản license NDI SDK phù hợp cho việc phân phối mã nguồn mở
-- [x] Cung cấp đường dẫn thực tế của `src-tauri/` — `D:\ProWorshipCast\src-tauri`
+- [x] Tải và đọc kỹ NDI SDK License Agreement, xác nhận điều khoản phù hợp với việc phân phối/bán ProWorship trước khi triển khai module 3.2 — đã chuyển sang NDI SDK chính thức (NDI 6 SDK) tại `C:\Program Files\NDI\NDI 6 SDK\`, license PDF: `C:\Program Files\NDI\NDI 6 SDK\NDI SDK License Agreement.pdf`; agent đã build + test pass với SDK này. Người dùng đã xác nhận ProWorship phân phối theo mô hình mã nguồn mở, điều khoản license NDI SDK phù hợp cho việc phân phối mã nguồn mở
+- [x] Cung cấp đường dẫn thực tế của `src-tauri/` — thư mục `src-tauri/` trong repo ProWorship
 - [x] Xác nhận có muốn agent làm cả 2 module (3.1 + 3.2) trong một lượt — đã làm cả 2, build + test pass

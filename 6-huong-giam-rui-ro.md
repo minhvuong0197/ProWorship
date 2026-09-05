@@ -1,4 +1,4 @@
-Yêu cầu áp dụng các nguyên tắc sau vào toàn bộ codebase ProWorshipCast (Rust + C++ + React), để giảm rủi ro và dễ bảo trì lâu dài. Không cần làm hết trong 1 lượt — đọc toàn bộ trước, xác nhận hiểu, rồi đề xuất thứ tự thực hiện hợp lý.
+Yêu cầu áp dụng các nguyên tắc sau vào toàn bộ codebase ProWorship (Rust + C++ + React), để giảm rủi ro và dễ bảo trì lâu dài. Không cần làm hết trong 1 lượt — đọc toàn bộ trước, xác nhận hiểu, rồi đề xuất thứ tự thực hiện hợp lý.
 
 1. THU HẸP VÀ NIÊM PHONG PHẦN C++
 - C++ chỉ được chứa phần bắt buộc phải native (nhận input, trả output) — không chứa business logic. Toàn bộ điều phối (khi nào gọi, gọi với tham số gì) phải nằm ở Rust.
@@ -23,7 +23,7 @@ Yêu cầu áp dụng các nguyên tắc sau vào toàn bộ codebase ProWorship
 - Nếu chưa đo được, phải báo cáo rõ đang đoán, không trình bày như đã xác nhận.
 
 6. GIỚI HẠN PHẠM VI NỀN TẢNG THEO NHU CẦU THỰC TẾ
-- Xác nhận lại: ProWorshipCast hiện ưu tiên nền tảng nào (mặc định giả sử Windows theo log hiện có). Chưa mở rộng hỗ trợ build C++/wgpu cho macOS/Linux cho tới khi có yêu cầu rõ ràng, để giảm số lượng cấu hình cần test và bảo trì.
+- Xác nhận lại: ProWorship hiện ưu tiên nền tảng nào (mặc định giả sử Windows theo log hiện có). Chưa mở rộng hỗ trợ build C++/wgpu cho macOS/Linux cho tới khi có yêu cầu rõ ràng, để giảm số lượng cấu hình cần test và bảo trì.
 
 7. TÍNH NĂNG TẬN DỤNG ĐÚNG THẾ MẠNH RIÊNG CỦA TỪNG CÔNG NGHỆ
 Lưu ý: Remote control qua QR (tiny_http + qrcode) đã làm xong — không làm lại. Dưới đây là các hạng mục còn lại, xếp theo thứ tự ưu tiên ROI (làm cao trước, thấp sau — không bắt buộc làm hết trong 1 lượt).

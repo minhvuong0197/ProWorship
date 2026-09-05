@@ -1,8 +1,8 @@
-# Brief thực thi cho Opencode (Deepseek v4 flash) — Pro WorshipCast
+# Brief thực thi cho Opencode (Deepseek v4 flash) — ProWorship
 
 Bối cảnh: Tauri v2 (Rust backend) + React/TypeScript frontend + C++ core (FFmpeg decode,
 NDI output) nối qua `cxx`. ~9.300 dòng Rust, ~16.200 dòng TS/TSX, ~7.100 dòng CSS.
-Repo đã có sẵn `ARCHITECTURE.md`, `README.md`, `ProWorshipCast_fix_brief.md`,
+Repo đã có sẵn `ARCHITECTURE.md`, `README.md`, `ProWorship_fix_brief.md`,
 `6-huong-giam-rui-ro.md` — đọc cả 4 file này trước khi bắt đầu, đừng lặp lại hướng đã
 thử và loại bỏ.
 

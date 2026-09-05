@@ -26,7 +26,7 @@ fn main() {
         // Always optimize the C++ core (JPEG encode is the hot path) even for
         // dev builds, so debug runs behave like the shipped release.
         .opt_level(3)
-        .compile("proworshipcast_core");
+        .compile("proworship_core");
 
     println!("cargo:rerun-if-changed=src/native/bridge.rs");
     println!("cargo:rerun-if-changed=cpp/include/core.h");

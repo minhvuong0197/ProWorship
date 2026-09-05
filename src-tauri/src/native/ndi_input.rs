@@ -1,6 +1,6 @@
 //! NDI input wrapper: owns the `cxx` `NdiReceiver` in `AppState` and runs a
 //! background capture loop so live video from a LAN source (camera, OBS,
-//! another ProWorshipCast) can be displayed in the WebView.
+//! another ProWorship instance) can be displayed in the WebView.
 //!
 //! Data flow: frontend command `ndi_input_start` → `NdiInput` → `cxx` bridge
 //! (`bridge.rs`) → `cpp/src/ndi_input.cpp` `NdiReceiver` → NDI SDK

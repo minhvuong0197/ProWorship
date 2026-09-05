@@ -1,4 +1,4 @@
-# Styles — quy ước viết CSS của Pro WorshipCast
+# Styles — quy ước viết CSS của ProWorship
 
 CSS thuần, **không** dùng CSS Modules / Tailwind / CSS-in-JS. Tất cả stylesheet
 được bundle qua Vite (mỗi window import đúng 1 file CSS từ entry `.tsx`, không

@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    pro_worshipcast_lib::run();
+    proworship_lib::run();
 }

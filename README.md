@@ -1,4 +1,4 @@
-# Pro WorshipCast
+# ProWorship
 
 ## License
 
@@ -35,6 +35,9 @@ Trong lúc vận hành, có thể điều khiển live ngay cả khi Control kh�
 ```bash
 npm run tauri build
 ```
+
+Bản phát hành hiện tại là `v1.0.0`. Tuân theo Semantic Versioning: tăng `1.1.0` khi
+thêm tính năng tương thích ngược, tăng `1.0.1` khi chỉ sửa lỗi hoặc cải thiện nhỏ.
 
 > **NDI DLL**: `Processing.NDI.Lib.x64.dll` bị loại khỏi git (license NDI).
 > Nếu clone repo trên máy khác, đặt file DLL vào `src-tauri/resources/`
